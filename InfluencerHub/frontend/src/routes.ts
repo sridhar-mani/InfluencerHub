@@ -7,6 +7,8 @@ import Info from "./components/Info.vue";
 import Find from "./components/Find.vue";
 import Stats from "./components/Stats.vue";
 import Campaign from "./components/Campaign.vue";
+import Profile from "./components/Profile.vue";
+import OneCampaign from "./components/OneCampaign.vue";
 
 const routes = [
   {
@@ -42,6 +44,16 @@ const routes = [
         path: "campaign",
         name: "Campaign",
         component: Campaign,
+      },
+      {
+        path: "onecampaign",
+        name: "OneCampaign",
+        component: OneCampaign,
+      },
+      {
+        path: "profile",
+        name: "Profile",
+        component: Profile,
       },
     ],
   },

@@ -11,7 +11,7 @@
     <BNavbarBrand href="#" v-else-if="userRole == 'influencer'"
       >Influencer's Dashboard</BNavbarBrand
     >
-    <BNavbarBrand href="#" v-else>Sponsor</BNavbarBrand>
+    <BNavbarBrand href="#" v-else>Sponsor's Dashboard</BNavbarBrand>
     <BNavbarToggle target="nav-collapse" />
     <BCollapse id="nav-collapse" is-nav>
       <BNavbarNav>
@@ -39,7 +39,9 @@
             <BAvatar rounded="circle" size="1.5em" class="mx-1" />
             <b>{{ userName }}</b>
           </template>
-          <BDropdownItem href="#" v-if="userRole === 'influencer'"
+          <BDropdownItem
+            v-if="userRole === 'influencer' || userRole === 'sponsor'"
+            :to="{ name: 'Profile' }"
             >Profile</BDropdownItem
           >
           <BDropdownItem href="#" @click="signout">Sign Out</BDropdownItem>
@@ -60,7 +62,7 @@ import { useRouter } from "vue-router";
 export default {
   name: "Navbar",
   setup() {
-    const userRole = ref(null);
+    const userRole = ref("");
     const router = useRouter();
     const userName = ref("");
     const checkSession = () => {
@@ -73,7 +75,6 @@ export default {
       if (localStorage.getItem("username")) {
         userName.value = localStorage.getItem("username");
         userRole.value = localStorage.getItem("role");
-        console.log(userRole);
       }
     };
 

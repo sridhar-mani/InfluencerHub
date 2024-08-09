@@ -116,9 +116,22 @@
             </li>
           </ul>
         </BFormGroup>
+        <b-form-group v-if="role === 'influencer'" label-for="influencer-img">
+          <div class="image-uploader">
+            <input
+              type="file"
+              id="influencer-img"
+              class="file-input"
+              @change="handleFileChange"
+            />
+            <label for="influencer-img" class="upload-label">
+              <span class="upload-text">Choose an image...</span>
+            </label>
+          </div>
+        </b-form-group>
 
-        <div class="mt-3">
-          Selected: <strong>{{ role }}</strong>
+        <div class="mt-3 text-center">
+          You are a <strong>{{ role }}</strong>
         </div>
         <div class="d-flex w-100 justify-content-evenly mt-3 g-3">
           <BButton type="submit" variant="success">Register</BButton>
@@ -131,7 +144,7 @@
   </div>
 </template>
 <script>
-import { ref, computed } from "vue";
+import { ref, computed, getCurrentInstance } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 
@@ -143,6 +156,7 @@ export default {
     const email = ref("");
     const password = ref("");
     const role = ref("influencer");
+    const { proxy } = getCurrentInstance();
     const industry = ref("");
     const niche = ref([]);
     const Budget = ref(0);
@@ -155,6 +169,19 @@ export default {
       "Select your niche",
     ]);
     const router = useRouter();
+    const profilepic = ref(null);
+    const handleFileChange = () => {
+      const file = document.getElementById("influencer-img").files[0];
+      profilepic.value = file;
+      console.log(profilepic.value);
+      if (file && file.type.startsWith("image/")) {
+        profilepic.value = file;
+        document.querySelector(".upload-text").textContent = file.name;
+        console.log("File uploaded:", profilepic.value.name);
+      } else {
+        console.log("Invalid file type. Please upload an image.");
+      }
+    };
 
     const exFieldNamesOptions = [
       { item: "Influencer", name: "influencer" },
@@ -175,7 +202,6 @@ export default {
         selectedTag.value = "";
       }
     };
-    console.log(niche);
 
     const removeTag = (tag) => {
       niche.value = niche.value.filter((t) => t !== tag);
@@ -183,31 +209,39 @@ export default {
 
     const submitForm = async () => {
       try {
+        const formData = new FormData();
+        formData.append("username", username.value);
+        formData.append("email", email.value);
+        formData.append("password", password.value);
+        formData.append("role", role.value.toLowerCase());
+
+        if (role.value.toLowerCase() === "influencer") {
+          formData.append("name", name.value);
+          formData.append("profile_name", name.value);
+          formData.append("category", industry.value);
+          formData.append("niche", JSON.stringify(niche.value));
+          if (profilepic.value) {
+            formData.append("profile_pic", profilepic.value); // Ensure key matches backend
+          } else {
+            console.log("No profile picture selected");
+          }
+        } else if (role.value.toLowerCase() === "sponsor") {
+          formData.append("companyname", name.value);
+          formData.append("industry", industry.value);
+          formData.append("budget", Budget.value);
+        }
         const response = await axios.post(
           "http://localhost:5000/register",
-          {
-            name: name.value,
-            username: username.value,
-            email: email.value,
-            password: password.value,
-            role: role.value.toLowerCase(),
-            ...(role.value.toLowerCase() === "influencer" && {
-              category: industry.value,
-              niche: niche.value,
-            }),
-            ...(role.value.toLowerCase() === "sponsor" && {
-              industry: industry.value,
-              budget: Budget.value,
-            }),
-          },
+          formData,
           {
             headers: {
-              "Content-Type": "application/json",
+              "Content-Type": "multipart/form-data",
             },
           }
         );
 
         if (response.data.message.toLowerCase().includes("success")) {
+          // proxy.$refs.toast.show("User created successfully");
           router.push({ name: "Login" });
         } else {
           console.log("User not created");
@@ -238,6 +272,7 @@ export default {
       login,
       removeTag,
       Budget,
+      handleFileChange,
     };
   },
 };
@@ -252,5 +287,51 @@ export default {
   .w-30 {
     width: 90%;
   }
+}
+
+.image-uploader {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  width: 100%;
+  height: 50px;
+  border: 2px dashed #007bff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-align: center;
+  background-color: #f9f9f9;
+  color: #007bff;
+}
+
+.file-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  color: #007bff;
+}
+
+.upload-text {
+  pointer-events: none;
+}
+
+.image-uploader:hover {
+  background-color: #f0f8ff;
 }
 </style>

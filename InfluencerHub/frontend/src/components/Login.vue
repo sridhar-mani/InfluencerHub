@@ -4,7 +4,8 @@
   >
     <div class="w-30">
       <h2 class="d-flex justify-content-center mb-5">Influencer App Login</h2>
-      <BForm>
+
+      <BForm @submit.prevent="login">
         <BFormFloatingLabel
           label="Username or Email Address"
           label-for="floatingInput"
@@ -31,67 +32,129 @@
             placeholder="Password"
           />
         </BFormFloatingLabel>
+        <template> </template>
         <div class="d-flex w-100 justify-content-evenly mt-3 g-3">
           <BButton type="submit" variant="success" @click="login"
             >Login</BButton
           >
-          <BButton type="reset" variant="primary" @click="register"
+          <BButton type="button" variant="primary" @click="register"
             >Register</BButton
           >
         </div>
       </BForm>
+      <Teleport to="body">
+        <div :class="'top-0 end-0'" class="toast-container position-fixed p-3">
+          <BToast v-model="showToast">
+            <template #title>{{ message }}</template>
+            {{ message }}
+          </BToast>
+        </div>
+      </Teleport>
     </div>
   </div>
 </template>
 
 <script>
 import axios from "axios";
+import { ref } from "vue";
+import router from "../routes";
+import { useToast } from "bootstrap-vue-next";
+
 export default {
   name: "Login",
-  data() {
-    return {
-      password: "",
-      usernameOrEmail: "",
-      loading: false,
+  setup() {
+    const usernameOrEmail = ref("");
+    const password = ref("");
+    const showToast = ref(false);
+    const show = ref(false);
+    const message = ref("");
+
+    const login = async () => {
+      try {
+        const loginData = {
+          username: usernameOrEmail.value,
+          password: password.value,
+        };
+        if (
+          loginData.username === "" ||
+          loginData.password === "" ||
+          loginData.username === null ||
+          loginData.password === null
+        ) {
+          message.value = "Please fill in all fields";
+          showToast.value = true;
+          return;
+        }
+        const response = await axios.post(
+          "http://localhost:5000/login",
+          loginData,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        console.log("login success", response.data);
+        localStorage.setItem("username", response.data.user.username);
+        localStorage.setItem("role", response.data.user.role);
+        router.push({ name: "Home" });
+      } catch (err) {
+        // showToast?.({
+        //   props: {
+        //     title: "Counting down!",
+        //     variant: "info",
+        //     pos: "middle-center",
+        //     value: 10000,
+        //     interval: 100,
+        //     progressProps: {
+        //       variant: "danger",
+        //     },
+        //     body: "Watch me!",
+        //   },
+        // });
+        console.log(err);
+        if (err.response.status === 401) {
+          message.value = "Invalid username or password";
+          showToast.value = true;
+        }
+        if (err.response.status === 500) {
+          message.value = "Server error";
+          showToast.value = true;
+        }
+        if (err.response.status === 404) {
+          message.value = "User not found";
+          showToast.value = true;
+        }
+      }
     };
-  },
-  methods: {
-    async login() {
-      this.loading = true;
-      const logindata = this.isEmail(this.usernameOrEmail)
-        ? { email: this.usernameOrEmail, password: this.password }
-        : { username: this.usernameOrEmail, password: this.password };
-      axios
-        .post("http://localhost:5000/login", logindata, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        })
-        .then((res) => {
-          console.log("login success", res.data);
-          localStorage.setItem("username", res.data.user.username);
-          localStorage.setItem("role", res.data.user.role);
-          this.$router.push({ name: "Home" });
-        })
-        .catch((err) => {
-          console.warn("Wrong Password", err);
-        })
-        .finally(() => (this.loading = false));
-    },
-    register() {
-      this.$router.push({ name: "Register" });
-    },
-    isEmail(value) {
+
+    const register = () => {
+      router.push({ name: "Register" });
+    };
+
+    const isEmail = (value) => {
       const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       return emailPattern.test(value);
-    },
-    validateInput() {
-      if (this.isEmail(this.usernameOrEmail)) {
-        this.email = this.usernameOrEmail;
+    };
+
+    const validateInput = () => {
+      if (isEmail(usernameOrEmail.value)) {
+        // do something with email
       } else {
-        this.username = this.usernameOrEmail;
+        // do something with username
       }
-    },
+    };
+
+    return {
+      usernameOrEmail,
+      password,
+      showToast,
+      login,
+      register,
+      validateInput,
+      show,
+      message,
+    };
   },
 };
 </script>

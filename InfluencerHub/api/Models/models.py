@@ -46,6 +46,7 @@ class Sponsor(db.Model):
     company_name=db.Column(db.String(100))
     industry=db.Column(db.String(100))
     budget=db.Column(db.Float)
+    niche = db.Column(db.String(100))
 
     user = db.relationship('User',back_populates='sponsor')
     campaigns=db.relationship('Campaign',back_populates='sponsor')
@@ -61,6 +62,21 @@ class Campaign(db.Model):
     budget=db.Column(db.Float,nullable=False)
     visibility=db.Column(db.String(10),nullable=False)
     goals=db.Column(db.String(100),nullable=False)
+    campaign_pic = db.Column(db.String(100),nullable=True)
+    niche = db.Column(db.String(100))
+    def to_dic(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'start_date': self.start_date,
+            'end_date': self.end_date,
+            'budget': self.budget,
+            'visibility': self.visibility,
+            'goals': self.goals,
+            'campaign_pic': self.campaign_pic,
+            'niche' : self.niche
+        }
 
     sponsor_id=db.Column(db.Integer,db.ForeignKey('sponsor.id'),nullable=False)
 
@@ -73,6 +89,7 @@ class Influencer(db.Model):
     category=db.Column(db.String(100))
     niche=db.Column(db.String(100))
     reach=db.Column(db.Float)
+    profile_pic = db.Column(db.String(100))
 
     user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False)
 
