@@ -2,7 +2,6 @@
   <div>
     <Navbar v-if="userRole" />
     <router-view />
-    <ToastComponent ref="toast" />
   </div>
 </template>
 

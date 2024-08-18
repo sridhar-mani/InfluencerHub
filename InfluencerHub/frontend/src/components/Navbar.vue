@@ -5,36 +5,27 @@
     v-b-color-mode="'dark'"
     class="border-bottom-1"
   >
-    <BNavbarBrand href="#" v-if="userRole == 'admin'"
-      >Admins's Dashboard</BNavbarBrand
-    >
-    <BNavbarBrand href="#" v-else-if="userRole == 'influencer'"
-      >Influencer's Dashboard</BNavbarBrand
-    >
-    <BNavbarBrand href="#" v-else>Sponsor's Dashboard</BNavbarBrand>
+    <BNavbarBrand v-if="userRole === 'admin'"> Admin's Dashboard </BNavbarBrand>
+    <BNavbarBrand v-else-if="userRole === 'influencer'">
+      Influencer's Dashboard
+    </BNavbarBrand>
+    <BNavbarBrand v-else> Sponsor's Dashboard </BNavbarBrand>
+
     <BNavbarToggle target="nav-collapse" />
     <BCollapse id="nav-collapse" is-nav>
       <BNavbarNav>
-        <BNavItem v-if="userRole === 'admin'" :to="{ name: 'Info' }"
-          >Info</BNavItem
-        >
-        <BNavItem
-          href="#"
-          v-if="userRole === 'sponsor'"
-          :to="{ name: 'Campaign' }"
-          >Campaigns</BNavItem
-        >
-        <BNavItem href="#" v-if="userRole" :to="{ name: 'Find' }"
-          >Find</BNavItem
-        >
-        <BNavItem href="#" v-if="userRole" :to="{ name: 'Stats' }"
-          >Stats</BNavItem
-        >
+        <BNavItem v-if="userRole === 'admin'" :to="{ name: 'Info' }">
+          Info
+        </BNavItem>
+        <BNavItem v-if="userRole === 'sponsor'" :to="{ name: 'Campaign' }">
+          Campaigns
+        </BNavItem>
+        <BNavItem v-if="userRole" :to="{ name: 'Find' }"> Find </BNavItem>
+        <BNavItem v-if="userRole" :to="{ name: 'Stats' }"> Stats </BNavItem>
       </BNavbarNav>
-      <!-- Right aligned nav items -->
+
       <BNavbarNav class="ms-auto mb-2 mb-lg-0">
         <BNavItemDropdown right>
-          <!-- Using 'button-content' slot -->
           <template #button-content>
             <BAvatar rounded="circle" size="1.5em" class="mx-1" />
             <b>{{ userName }}</b>
@@ -42,15 +33,12 @@
           <BDropdownItem
             v-if="userRole === 'influencer' || userRole === 'sponsor'"
             :to="{ name: 'Profile' }"
-            >Profile</BDropdownItem
           >
-          <BDropdownItem href="#" @click="signout">Sign Out</BDropdownItem>
+            Profile
+          </BDropdownItem>
+          <BDropdownItem @click="signout"> Sign Out </BDropdownItem>
         </BNavItemDropdown>
       </BNavbarNav>
-      <BNavForm class="d-flex">
-        <BFormInput class="me-2" placeholder="Search" />
-        <BButton type="submit" variant="outline-success">Search</BButton>
-      </BNavForm>
     </BCollapse>
   </BNavbar>
 </template>
@@ -63,24 +51,23 @@ export default {
   name: "Navbar",
   setup() {
     const userRole = ref("");
-    const router = useRouter();
     const userName = ref("");
+    const router = useRouter();
+
     const checkSession = () => {
       const isUserLoggedIn = localStorage.getItem("username") !== null;
 
       if (!isUserLoggedIn) {
         router.push({ name: "Login" });
+        return;
       }
 
-      if (localStorage.getItem("username")) {
-        userName.value = localStorage.getItem("username");
-        userRole.value = localStorage.getItem("role");
-      }
+      userName.value = localStorage.getItem("username") || "";
+      userRole.value = localStorage.getItem("role") || "";
     };
 
     const signout = () => {
-      localStorage.removeItem("username");
-      localStorage.removeItem("role");
+      localStorage.clear();
       router.push({ name: "Login" });
     };
 
@@ -93,4 +80,8 @@ export default {
 };
 </script>
 
-<style></style>
+<style scoped>
+.border-bottom-1 {
+  border-bottom: 1px solid #dee2e6;
+}
+</style>

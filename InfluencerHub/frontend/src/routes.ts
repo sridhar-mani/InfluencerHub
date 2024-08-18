@@ -1,8 +1,8 @@
+// router.js
 import { createRouter, createWebHistory } from "vue-router";
 import Login from "./components/Login.vue";
 import Home from "./components/Home.vue";
 import Register from "./components/Register.vue";
-import App from "./App.vue";
 import Info from "./components/Info.vue";
 import Find from "./components/Find.vue";
 import Stats from "./components/Stats.vue";
@@ -18,7 +18,7 @@ const routes = [
   },
   {
     path: "/",
-    component: App,
+    component: () => import("./App.vue"), // Lazy loading the App component
     children: [
       {
         path: "",
@@ -46,9 +46,10 @@ const routes = [
         component: Campaign,
       },
       {
-        path: "onecampaign",
+        path: "campaigns/:username?",
         name: "OneCampaign",
         component: OneCampaign,
+        props: true,
       },
       {
         path: "profile",
@@ -57,7 +58,6 @@ const routes = [
       },
     ],
   },
-
   {
     path: "/register",
     name: "Register",

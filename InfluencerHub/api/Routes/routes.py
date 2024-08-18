@@ -98,7 +98,7 @@ def manage_user():
         db.session.commit()
         return jsonify(new_user.to_dict()),201
     user=User.query.all()
-    return jsonify([user.to_dict() for user in users])
+    return jsonify([us.to_dict() for us in user])
 
 @app.route('/',methods=['GET'])
 def Home():
@@ -155,7 +155,6 @@ def handle_user(username):
                     'industry': sponsor.industry,
                     'budget': sponsor.budget
                 })
-        
         return jsonify(user_data), 200
 
     elif request.method == 'PUT':
@@ -196,6 +195,19 @@ def handle_user(username):
         # Return a successful response
         return '', 204
 
+
+@app.route('/users/get_influencers', methods=['GET'])
+def get_influencers():
+    query = request.args.get('query', '')
+    if query:
+        # Perform a search in your database based on the query
+        influencers = User.query.filter(User.role == 'influencer', User.username.ilike(f'%{query}%')).all()
+        suggestions = [influencer.username for influencer in influencers]
+        return jsonify(suggestions)
+    else:
+        return jsonify([])
+
+
 @auth_required
 @app.route("/add_campaign/<string:username>", methods=['POST'])
 def add_campaign(username):
@@ -213,7 +225,6 @@ def add_campaign(username):
         else:
             if temp:
                 filename = secure_filename(temp.filename)
-            
                 if "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_formats:
                     unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
                     campaign_fin = os.path.join(app.config['UPLOAD_FOLDER_PPIC'], unique_filename)
@@ -255,14 +266,276 @@ def add_campaign(username):
     else:
         return jsonify({'message': 'Unauthorized role'}), 403
 
+@auth_required
+@app.route("/campaigns/<string:username>", methods=['GET'])
+def get_campaigns(username):
+    user = User.query.filter_by(username=username).first()
+    if user:
+        if user.role == 'sponsor':
+            sponsor = Sponsor.query.filter_by(user_id=user.id).first()
+            campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id).all()
+            influencer = Influencer.query.all()
+            return jsonify({
+                'campaigns': [campaign.to_dic() for campaign in campaigns],
+                "influencers":[ i.to_dic() for i in influencer ]}), 200
+        elif user.role == 'influencer':
+            influencer = Influencer.query.filter_by(user_id=user.id).first()
+            ad_requests = Adrequest.query.filter_by(influencer_id=influencer.id).all()
+            campaign_ids = [ad_request.campaign_id for ad_request in ad_requests]
+            campaigns = Campaign.query.filter(Campaign.id.in_(campaign_ids)).all()
+            return jsonify({
+                'campaigns': [campaign.to_dic() for campaign in campaigns],
+                'ad_requests': [ad_request.to_dict() for ad_request in ad_requests]
+            }), 200
+        else:
+            return jsonify({'message': 'Unauthorized role'}), 403
+    else:
+        return jsonify({'message': 'User not found'}), 404
+
 
 @auth_required
-@app.route("/campaign/<string:username>", methods=['GET'])
-def get_campaigns(username):
+@app.route("/campaign/<string:username>/<string:name>", methods=['GET'])
+def get_campaign(username,name):
+    print(username,name)
     user = User.query.filter_by(username=username).first()
     if user.role == 'sponsor':
         sponsor = Sponsor.query.filter_by(user_id=user.id).first()
-        campaigns = Campaign.query.filter_by(sponsor=sponsor).all()
+        campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id, name=name).all()
+        print(campaigns)
         return jsonify([campaign.to_dic() for campaign in campaigns]), 200
     else:
         return jsonify({'message': 'Unauthorized role'}), 403
+    
+
+@auth_required
+@app.route("/add_adrequest/<string:username>/<int:campaign_id>", methods=['POST'])
+def add_adrequest(username, campaign_id):
+    print(username,campaign_id)
+    user = User.query.filter_by(username=username).first()
+    print(user)
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+
+    if user.role != 'sponsor':
+        return jsonify({'message': 'Unauthorized role'}), 403
+    
+    campaign = Campaign.query.get(campaign_id)
+    print(campaign)
+    if not campaign:
+        return jsonify({'message': 'Campaign not found'}), 404
+
+    data = request.get_json()
+    print(data)
+    if not data:
+        return jsonify({'message': 'Invalid or missing JSON data'}), 400
+
+    # Assuming 'influencer_id' is sent as part of the request
+    influencer_username = data.get('influencers')
+    print(influencer_username)
+    if influencer_username:
+        influencer_id = Influencer.query.filter_by(name=influencer_username).first().id
+        new_adrequest = Adrequest(
+        messages=data.get('message'),
+        requirements=data.get('requirements'),
+        payment_amount=data.get('payment_amount'),
+        status='pending',
+        campaign_id=campaign.id,
+        influencer_id=influencer_id
+    )
+        if not influencer_id:
+            return jsonify({'message': 'Influencer not selected'}), 400
+
+    new_adrequest = Adrequest(
+        messages=data.get('message'),
+        requirements=data.get('requirements'),
+        payment_amount=data.get('payment_amount'),
+        status='pending',
+        campaign_id=campaign.id,
+        influencer_id=0
+    )
+
+    db.session.add(new_adrequest)
+    db.session.commit()
+    return jsonify({'message': 'Ad request submitted successfully'}), 201
+
+@auth_required
+@app.route("/stats/<string:username>", methods=['GET'])
+def get_stats(username):
+    user = User.query.filter_by(username=username).first()
+    if user:
+        if user.role == 'sponsor':
+            sponsor = Sponsor.query.filter_by(user_id=user.id).first()
+            campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id).all()
+            active_campaign = 0
+            inactive_campaign = 0
+            used_budget = 0
+            niches = []
+
+            for campaign in campaigns:
+                used_budget += campaign.budget
+                if campaign.end_date.date() > date.today():
+                    active_campaign += 1
+                else:
+                    inactive_campaign += 1
+                niches.append(campaign.niche)
+
+            ad_requests = Adrequest.query.filter(Adrequest.campaign_id.in_([campaign.id for campaign in campaigns])).all()
+
+            influencers_budget = [
+                {"influencer": ad.influencer.name, "budget": ad.payment_amount}
+                for ad in ad_requests if ad.influencer_id != 0 and ad.influencer is not None
+            ]
+
+            response_data = {
+                "adrequestsdata": [ad_request.to_dict() for ad_request in ad_requests],
+                "campaignsdata": [campaign.to_dic() for campaign in campaigns],
+                "sponsordata": sponsor.to_dic(),
+                "activevsinactive": [active_campaign, inactive_campaign]
+            }
+
+            if influencers_budget:
+                response_data["influencerbudget"] = influencers_budget
+
+            return jsonify(response_data), 200
+
+        elif user.role == 'influencer':
+            influencer = Influencer.query.filter_by(user_id=user.id).first()
+            ad_requests = Adrequest.query.filter_by(influencer_id=influencer.id).all()
+            return jsonify([ad_request.to_dict() for ad_request in ad_requests]), 200
+
+        else:
+            users = User.query.all()
+            campaigns = Campaign.query.all()
+            ad_requests = Adrequest.query.all()
+            return jsonify({
+                'users': [user.to_dict() for user in users],
+                'campaigns': [campaign.to_dic() for campaign in campaigns],
+                'ad_requests': [ad_request.to_dict() for ad_request in ad_requests]
+            }), 200
+
+@auth_required
+@app.route("/submit_request/<string:type>/<int:id>", methods=['POST'])
+def submit_request(type, id):
+    try:
+        data = request.get_json()
+        message = data.get('message', "")
+        requirements = data.get('requirements', "")
+        payment_amount = data.get('amount', 0.0)
+        campaign_id = data.get('campaign_id', None)
+
+        if not campaign_id:
+            print("campaign",campaign_id)
+            return jsonify({'message': 'Campaign ID is required'}), 400
+
+        if type == 'influencer':
+            print("campaign",campaign_id)
+            influ = Influencer.query.get(id)
+            print(influ)
+            if not Influencer:
+                return jsonify({'message': 'Influencer not found'}), 404
+
+            adrequest_new = Adrequest(
+                messages=message,
+                requirements=requirements,
+                payment_amount=payment_amount,
+                status='pending',
+                campaign_id=campaign_id,
+                influencer_id=id
+            )
+            db.session.add(adrequest_new)
+            db.session.commit()
+
+            return jsonify({'message': 'Request submitted successfully'}), 201
+
+        elif type == 'campaign':
+            campaign = Campaign.query.get(id)
+            if not campaign:
+                return jsonify({'message': 'Campaign not found'}), 404
+
+            adrequest_new = Adrequest(
+                messages=message,
+                requirements=requirements,
+                payment_amount=payment_amount,
+                status='pending',
+                campaign_id=campaign.id,
+                influencer_id=id  # Assuming `id` is the influencer_id in this context
+            )
+            db.session.add(adrequest_new)
+            db.session.commit()
+
+            return jsonify({'message': 'Request submitted successfully'}), 201
+        else:
+            return jsonify({'message': 'Invalid request type'}), 400
+
+    except Exception as e:
+        db.session.rollback()
+        print("Error submitting request:", e)
+        return jsonify({'message': 'Failed to submit request'}), 500
+
+@auth_required
+@app.route("/adrequests/<string:username>", methods=['GET'])
+def get_adrequests(username):
+    user = User.query.filter_by(username=username).first()
+    print(user)
+    if user.role == 'sponsor':
+        sponsor = Sponsor.query.filter_by(user_id=user.id).first()
+        campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id).all()
+        ad_requests = Adrequest.query.filter(Adrequest.campaign_id.in_([campaign.id for campaign in campaigns])).all()
+        ad_requests = [{
+                 'id': ad.id,
+        'message': ad.messages,
+        'requirements': ad.requirements,
+        'payment_amount': ad.payment_amount,
+        'status': ad.status,
+        'campaign_name': [cam.name for cam in campaigns if cam.id==ad.id][0]
+                        } for ad in ad_requests if ad.status == 'pending']
+        return jsonify([ad_request for ad_request in ad_requests]), 200
+    if user.role == 'influencer':
+        influencer = Influencer.query.filter_by(user_id=user.id).first()
+        ad_requests = Adrequest.query.filter_by(influencer_id=influencer.id).all()
+
+        ad_requests = [{
+            'id': ad.id,
+            'message': ad.messages,
+            'requirements': ad.requirements,
+            'payment_amount': ad.payment_amount,
+            'status': ad.status,
+            'campaign_name': Campaign.query.get(ad.campaign_id).name
+        } for ad in ad_requests if ad.status == 'pending']
+
+        return jsonify(ad_requests), 200
+    else:
+        return jsonify({'message': 'Unauthorized role'}), 403
+
+@auth_required
+@app.route('/process_request/<int:id>', methods=['POST'])
+def process_ad_requests(id):
+    ad_request = Adrequest.query.get(id)
+    if not ad_request:
+        return jsonify({'message': 'Ad request not found'}), 404
+    
+    data = request.get_json()
+
+    if data.get("todo") == 'accept':
+        # Processing when the request is sent by the sponsor
+        if data.get("sender") == 'sponsor':
+          
+            ad_request.influencer_id = data.get("influencer_id")
+            ad_request.status = 'accepted_by_sponsor'
+
+        # Processing when the request is sent by the influencer
+        elif data.get("sender") == 'influencer':
+            
+            ad_request.campaign_id = data.get("campaign_id")
+            ad_request.status = 'accepted_by_influencer'
+
+        else:
+            return jsonify({'message': 'Invalid sender type'}), 400
+
+    elif data.get("todo") == 'reject':
+        ad_request.status = 'rejected'
+    else:
+        return jsonify({'message': 'Invalid action'}), 400
+
+    db.session.commit()
+    return jsonify({'message': f'Request has been {ad_request.status}'}), 200

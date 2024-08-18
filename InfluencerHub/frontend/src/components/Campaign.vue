@@ -2,29 +2,29 @@
   <div class="d-flex p-4">
     <!-- Card Component -->
     <BCard
-      v-for="campaign in campaigns"
-      :title="campaign.name"
-      :key="campaign.id"
-      :img-src="base + '/' + campaign.campaign_pic"
-      img-alt="Image"
-      img-top
-      tag="article"
-      style="max-width: 15rem; max-height: 25rem"
+    v-for="campaign in campaigns"
+    :title="campaign.name"
+    :key="campaign.id"
+    :img-src="base + '/' + campaign.campaign_pic"
+    img-alt="Image"
+    img-top
+    tag="article"
+    style="max-width: 15rem; max-height: 25rem;"
+    class="d-flex flex-column m-0 justify-content-between align-items-center"
+  >
+    <BCardText class="m-0" style="height: 40%; font-size: 10px;overflow: hidden;">
+      {{ campaign.description }}
+    </BCardText>
+
+    <BButton
+      variant="primary"
+      :to="{ name: `OneCampaign`, params: { username: campaign.name } }"
+      class="mt-auto m-0 align-self-center"
     >
-      <BCardText style="max-height: 40%; font-size: 14px">{{
-        campaign.description
-      }}</BCardText>
+      Go to Campaign
+    </BButton>
+  </BCard>
 
-      <BButton
-        href="#"
-        variant="primary"
-        :to="{ name: `campaign/${campaign.name.split(" ")}` }"
-      >
-        Go to Campaign
-      </BButton>
-    </BCard>
-
-    <!-- Modal -->
     <BModal
       id="modal-center"
       v-model="modal"
@@ -177,7 +177,6 @@
       </div>
     </BModal>
 
-    <!-- Floating Action Button -->
     <b-button variant="primary" class="fab" @click="openModal"> + </b-button>
   </div>
 </template>
@@ -272,14 +271,13 @@ export default {
         );
         console.log("Campaign added successfully", response.data);
         if (response.data.message.toLowerCase().includes("success")) {
-          // proxy.$refs.toast.show("Campaign added successfully");
+          
           resetForm();
           modal.value = false;
         } else {
           console.log("Campaign not added");
         }
       } catch (error) {
-        // proxy.$refs.toast.show("Error adding campaign");
         console.log("Error adding campaign:", error);
       }
     };
@@ -299,11 +297,11 @@ export default {
       if (!role) {
         router.push({ name: "Login" });
       }
-      campaigns.value = await axios.get(
-        `http://localhost:5000/campaign/${localStorage.getItem("username")}`
+      const responce = await axios.get(
+        `http://localhost:5000/campaigns/${localStorage.getItem("username")}`
       );
-      campaigns.value = campaigns.value.data;
-      console.log(campaigns.value);
+      campaigns.value = responce.data.campaigns;
+      console.log(campaigns);
     });
 
     return {

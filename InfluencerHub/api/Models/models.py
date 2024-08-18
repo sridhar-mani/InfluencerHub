@@ -34,6 +34,17 @@ class Adrequest(db.Model):
     requirements=db.Column(db.String(256),nullable=False)
     payment_amount=db.Column(db.Float,nullable=False)
     status= db.Column(db.String(10),nullable=False)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'messages': self.messages,
+            'requirements': self.requirements,
+            'payment_amount': self.payment_amount,
+            'status': self.status,
+            'campaign_id': self.campaign_id,
+            'influencer_id': self.influencer_id
+        }
 
     campaign_id=db.Column(db.Integer,db.ForeignKey('campaign.id'),nullable=False)
     influencer_id=db.Column(db.Integer,db.ForeignKey('influencer.id'),nullable=False)
@@ -47,6 +58,15 @@ class Sponsor(db.Model):
     industry=db.Column(db.String(100))
     budget=db.Column(db.Float)
     niche = db.Column(db.String(100))
+    
+    def to_dic(self):
+        return {
+            "id":self.id,
+            "company_name":self.company_name,
+            "industry":self.industry,
+            "budget":self.budget,
+            "niche":self.niche  
+        }
 
     user = db.relationship('User',back_populates='sponsor')
     campaigns=db.relationship('Campaign',back_populates='sponsor')
@@ -90,6 +110,15 @@ class Influencer(db.Model):
     niche=db.Column(db.String(100))
     reach=db.Column(db.Float)
     profile_pic = db.Column(db.String(100))
+    def to_dic(self):
+        return {
+            "id":self.id,
+            "name":self.name,
+            "category":self.category,
+            "niche":self.niche,
+            "reach":self.reach,
+            "profile_pic":self.profile_pic
+        }
 
     user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False)
 

@@ -3,19 +3,60 @@
     <BContainer fluid class="p-3 w-75">
       <BRow class="mt-3">
         <BCol md="3" v-if="role === 'influencer'">
-          <BCard class="text-center">
-            <BImg
-              :src="mainProps.src"
-              class="w-100 h-100"
-              rounded
-              alt="Rounded image"
-            />
-            <BCardText class="w-100 d-flex align-items-lg-start mt-1 mb-0"
-              >Rating:{{ displayStars }}</BCardText
+          <BModal
+            v-model="showModal"
+            title="Ad Request Details"
+            hide-footer
+            centered
+          >
+            <div v-if="selectedRequest">
+              <p>
+                <strong>Campaign Name:</strong>
+                {{ selectedRequest.campaign_name }}
+              </p>
+              <p><strong>Message:</strong> {{ selectedRequest.message }}</p>
+              <p>
+                <strong>Requirements:</strong>
+                {{ selectedRequest.requirements }}
+              </p>
+              <p>
+                <strong>Payment Amount:</strong> ₹{{
+                  selectedRequest.payment_amount
+                }}
+              </p>
+            </div>
+            <BButton
+              variant="success"
+              class="w-100 mt-3"
+              @click="acceptRequest(selectedRequest)"
             >
-            <BCardText class="w-100 d-flex align-items-lg-start mt-1 mb-0"
-              >Earnings(This Month): $ 500</BCardText
+              Accept
+            </BButton>
+            <BButton
+              variant="danger"
+              class="w-100 mt-2"
+              @click="rejectRequest(selectedRequest)"
             >
+              Reject
+            </BButton>
+          </BModal>
+          <BCard class="profile-card">
+            <div class="profile-img-wrapper">
+              <BImg
+                :src="mainProps.src"
+                class="profile-img"
+                rounded
+                alt="Profile picture"
+              />
+            </div>
+            <div class="profile-info">
+              <BCardText class="profile-rating"
+                >Rating: {{ displayStars }}</BCardText
+              >
+              <BCardText class="profile-earnings">
+                Earnings (This Month): $500
+              </BCardText>
+            </div>
           </BCard>
         </BCol>
 
@@ -23,30 +64,62 @@
           <h2>Welcome {{ username }}</h2>
 
           <h3 class="mt-4">Active Campaigns:</h3>
-          <BListGroup>
+          <BListGroup
+            class="w-100 mt-2 mb-1 d-flex"
+            v-for="c in campaigns"
+            :key="c.id"
+          >
             <BListGroupItem
-              class="d-flex justify-content-between align-items-center"
-              v-for="campaign in activeCampaigns"
-              :key="campaign.id"
+              href="#"
+              class="list-group-item mb-1 d-flex justify-content-between flex--wrap align-items-center"
+              :to="{ name: `OneCampaign`, params: { username: c.name } }"
+              >{{ c.name }} | {{ c.goals }} | ₹{{ c.budget }} | {{ c.niche }} |
+              {{ c.visibility }}
+              <div class="d-flex gap-2">
+                <BButton
+                  pill
+                  variant="outline-primary"
+                  :to="{ name: `OneCampaign`, params: { username: c.name } }"
+                  >View</BButton
+                >
+                <BButton
+                  pill
+                  variant="outline-success"
+                  v-if="role === 'influencer'"
+                  >Request</BButton
+                >
+              </div></BListGroupItem
             >
-              {{ campaign.name }} | Progress {{ campaign.progress }}%
-              <BButton variant="warning" size="sm">view</BButton>
-            </BListGroupItem>
           </BListGroup>
 
           <h3 class="mt-4">New Requests:</h3>
           <BListGroup>
             <BListGroupItem
               class="d-flex justify-content-between align-items-center"
-              v-for="request in newRequests"
+              v-for="request in campaignad"
               :key="request.id"
             >
-              {{ request.name }} | {{ request.company }}
-              <BButtonGroup>
-                <BButton variant="warning" size="sm">view</BButton>
-                <BButton variant="success" size="sm">accept</BButton>
-                <BButton variant="danger" size="sm">reject</BButton>
-              </BButtonGroup>
+              {{ request.campaign_name }} | ₹{{ request.payment_amount }}
+              <div class="w-50 d-flex justify-content-evenly">
+                <BButton
+                  variant="warning"
+                  size="sm w-25"
+                  @click="openModal(request)"
+                  >view</BButton
+                >
+                <BButton
+                  variant="success"
+                  size="sm w-25"
+                  @click="acceptRequest(request)"
+                  >accept</BButton
+                >
+                <BButton
+                  variant="danger"
+                  size="sm w-25"
+                  @click="rejectRequest(request)"
+                  >reject</BButton
+                >
+              </div>
             </BListGroupItem>
           </BListGroup>
         </BCol>
@@ -65,36 +138,125 @@ export default {
     const role = ref(null);
     const username = ref(null);
     const user = ref(null);
+    const campaigns = ref([]);
     const mainProps = ref({
       src: "",
       alt: "image",
     });
     const rating = ref(2);
+    const showModal = ref(false);
+    const selectedRequest = ref(null);
+    const campaignad = ref([]);
     const displayStars = computed(() => "⭐️".repeat(rating.value));
+
+    const openModal = (request) => {
+      selectedRequest.value = request;
+      showModal.value = true;
+    };
+    const acceptRequest = async (request) => {
+      try {
+        await axios.post(`http://localhost:5000/process_request/${request.id}`);
+        showModal.value = false;
+      } catch (error) {
+        console.error("Error accepting request:", error);
+      }
+    };
+
+    const rejectRequest = async (request) => {
+      try {
+        await axios.post(`http://localhost:5000/process_request/${request.id}`);
+        showModal.value = false;
+      } catch (error) {
+        console.error("Error rejecting request:", error);
+      }
+    };
 
     onMounted(async () => {
       role.value = localStorage.getItem("role");
       username.value = localStorage.getItem("username");
       const response = await axios.get(
-        `http://localhost:5000/users/${username.value}`
+        `http://localhost:5000/campaigns/${localStorage.getItem("username")}`
       );
-      user.value = response.data; // Assign fetched data to user
-      console.log(user);
+      campaigns.value = response.data.campaigns;
+      const campaignRes = await axios.get(
+        `http://localhost:5000/adrequests/${localStorage.getItem("username")}`
+      );
+      console.log(campaignRes);
+      campaignad.value = campaignRes.data;
+      console.log(campaignad);
+      user.value = response.data;
       if (!role.value) {
         router.push({ name: "Login" });
       }
+      const { data } = await axios.get(
+        `http://localhost:5000/users/${localStorage.getItem("username")}`
+      );
       if (role.value === "influencer") {
-        mainProps.value.src = user.value.profile_pic;
-        console.log(import.meta.env);
-        mainProps.value.src = `${
-          import.meta.env.VITE_APP_API_BASE_URL
-        }/`.concat(mainProps.value.src);
+        const userResponse = await axios.get(
+          `http://localhost:5000/users/${username.value}`
+        );
+        mainProps.value.src = `${import.meta.env.VITE_APP_API_BASE_URL}/${
+          userResponse.data.profile_pic
+        }`;
       }
     });
 
-    return { username, role, mainProps, rating, displayStars };
+    return {
+      username,
+      role,
+      mainProps,
+      rating,
+      displayStars,
+      campaigns,
+      campaignad,
+      openModal,
+      showModal,
+      selectedRequest,
+      acceptRequest,
+      rejectRequest,
+    };
   },
 };
 </script>
 
-<style></style>
+<style scoped>
+.profile-card {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.profile-img-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+}
+
+.profile-img {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.profile-rating {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: #333;
+}
+
+.profile-earnings {
+  font-size: 1em;
+  color: #666;
+}
+</style>
