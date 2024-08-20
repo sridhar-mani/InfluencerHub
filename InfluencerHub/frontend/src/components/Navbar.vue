@@ -27,7 +27,12 @@
       <BNavbarNav class="ms-auto mb-2 mb-lg-0">
         <BNavItemDropdown right>
           <template #button-content>
-            <BAvatar rounded="circle" size="1.5em" class="mx-1" />
+            <BAvatar
+              rounded="circle"
+              :src="profilePic"
+              size="2em"
+              class="mx-2"
+            />
             <b>{{ userName }}</b>
           </template>
           <BDropdownItem
@@ -44,6 +49,7 @@
 </template>
 
 <script>
+import axios from "axios";
 import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 
@@ -53,8 +59,9 @@ export default {
     const userRole = ref("");
     const userName = ref("");
     const router = useRouter();
+    const profilePic = ref("");
 
-    const checkSession = () => {
+    const checkSession = async () => {
       const isUserLoggedIn = localStorage.getItem("username") !== null;
 
       if (!isUserLoggedIn) {
@@ -64,6 +71,12 @@ export default {
 
       userName.value = localStorage.getItem("username") || "";
       userRole.value = localStorage.getItem("role") || "";
+      const { data } = await axios.get(
+        `http://localhost:5000/users/${userName.value}`
+      );
+      profilePic.value = `${import.meta.env.VITE_APP_API_BASE_URL}/${
+        data.profile_pic
+      }`;
     };
 
     const signout = () => {
@@ -75,7 +88,7 @@ export default {
       checkSession();
     });
 
-    return { signout, userRole, userName };
+    return { signout, userRole, userName, profilePic };
   },
 };
 </script>

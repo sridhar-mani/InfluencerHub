@@ -40,7 +40,7 @@
               Reject
             </BButton>
           </BModal>
-          <BCard class="profile-card">
+          <BCard class="profile-card w-75">
             <div class="profile-img-wrapper">
               <BImg
                 :src="mainProps.src"
@@ -49,12 +49,18 @@
                 alt="Profile picture"
               />
             </div>
-            <div class="profile-info">
-              <BCardText class="profile-rating"
-                >Rating: {{ displayStars }}</BCardText
+            <div class="profile-info d-flex align-items-start">
+              <BCardText
+                class="profile-rating w-100 d-flex justify-content-between align-items-center"
+                ><p>Rating:</p>
+                <p style="font-size: 13px">{{ displayStars }}</p></BCardText
               >
-              <BCardText class="profile-earnings">
-                Earnings (This Month): $500
+
+              <BCardText
+                class="profile-earnings d-flex justify-content-between align-items-center gap-2"
+              >
+                <p class="fw-bold text-start w-auto">Earnings (This Month):</p>
+                <p>$500</p>
               </BCardText>
             </div>
           </BCard>
@@ -143,7 +149,7 @@ export default {
       src: "",
       alt: "image",
     });
-    const rating = ref(2);
+    const rating = ref(5);
     const showModal = ref(false);
     const selectedRequest = ref(null);
     const campaignad = ref([]);
@@ -155,7 +161,13 @@ export default {
     };
     const acceptRequest = async (request) => {
       try {
-        await axios.post(`http://localhost:5000/process_request/${request.id}`);
+        await axios.post(
+          `http://localhost:5000/process_request/${request.id}`,
+          {
+            sender: role.value,
+            todo: "accept",
+          }
+        );
         showModal.value = false;
       } catch (error) {
         console.error("Error accepting request:", error);
@@ -164,7 +176,10 @@ export default {
 
     const rejectRequest = async (request) => {
       try {
-        await axios.post(`http://localhost:5000/process_request/${request.id}`);
+        await axios.post(`http://localhost:5000/process_request/${request.id}`),
+          {
+            todo: "reject",
+          };
         showModal.value = false;
       } catch (error) {
         console.error("Error rejecting request:", error);
@@ -181,9 +196,7 @@ export default {
       const campaignRes = await axios.get(
         `http://localhost:5000/adrequests/${localStorage.getItem("username")}`
       );
-      console.log(campaignRes);
       campaignad.value = campaignRes.data;
-      console.log(campaignad);
       user.value = response.data;
       if (!role.value) {
         router.push({ name: "Login" });
@@ -195,6 +208,7 @@ export default {
         const userResponse = await axios.get(
           `http://localhost:5000/users/${username.value}`
         );
+        console.log(userResponse.data);
         mainProps.value.src = `${import.meta.env.VITE_APP_API_BASE_URL}/${
           userResponse.data.profile_pic
         }`;
@@ -222,7 +236,7 @@ export default {
 <style scoped>
 .profile-card {
   background-color: #ffffff;
-  padding: 20px;
+
   border-radius: 12px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   text-align: center;
@@ -250,7 +264,6 @@ export default {
 
 .profile-rating {
   font-size: 1.2em;
-  margin-bottom: 10px;
   font-weight: bold;
   color: #333;
 }
@@ -258,5 +271,10 @@ export default {
 .profile-earnings {
   font-size: 1em;
   color: #666;
+}
+
+.b-form-checkbox input[type="checkbox"]:focus {
+  box-shadow: none;
+  outline: none;
 }
 </style>

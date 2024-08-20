@@ -3,7 +3,7 @@ from app import app
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
-from datetime import date,timedelta
+from datetime import date,timedelta, datetime
 from ..Models.models import User,db, Sponsor, Influencer,Campaign, Adrequest
 import os
 import uuid
@@ -134,10 +134,8 @@ def handle_user(username):
     user = User.query.filter_by(username=username).first_or_404()
 
     if request.method == 'GET':
-        # Initialize user data
         user_data = user.to_dict()
 
-        # Include role-specific details in the response
         if user.role == 'influencer':
             influencer = Influencer.query.filter_by(user_id=user.id).first()
             if influencer:
@@ -160,7 +158,6 @@ def handle_user(username):
     elif request.method == 'PUT':
         data = request.get_json()
 
-        # Update user details
         user.username = data.get('username', user.username)
         user.email = data.get('email', user.email)
 
@@ -169,7 +166,6 @@ def handle_user(username):
 
         user.name = data.get('name', user.name)
 
-        # Handle role-specific updates if necessary
         if user.role == 'influencer':
             influencer = Influencer.query.filter_by(user_id=user.id).first()
             if influencer:
@@ -239,8 +235,8 @@ def add_campaign(username):
                         visibility=data['visibility'],
                         goals=data['goals'],
                         niche=data['niche'],
-                        start_date=date.today(),
-                        end_date=date.today() + timedelta(days=int(data['duration'])),
+                        start_date=datetime.now(),
+                        end_date=datetime.now() + timedelta(days=int(data['duration'])),
                         campaign_pic=campaign_fin
                     )
                     db.session.add(new_campaign)
@@ -257,8 +253,8 @@ def add_campaign(username):
                     visibility=data['visibility'],
                     goals=data['goals'],
                     niche=data['niche'],
-                    start_date=date.today(),
-                    end_date=date.today() + timedelta(days=int(data['duration']))
+                    start_date=datetime.now(),
+                    end_date=datetime.now() + timedelta(days=int(data['duration']))
                 )
                 db.session.add(new_campaign)
                 db.session.commit()
@@ -373,7 +369,7 @@ def get_stats(username):
 
             for campaign in campaigns:
                 used_budget += campaign.budget
-                if campaign.end_date.date() > date.today():
+                if campaign.end_date.date() > datetime.now():
                     active_campaign += 1
                 else:
                     inactive_campaign += 1
@@ -513,21 +509,24 @@ def process_ad_requests(id):
     ad_request = Adrequest.query.get(id)
     if not ad_request:
         return jsonify({'message': 'Ad request not found'}), 404
-    
     data = request.get_json()
-
+    print(data)
     if data.get("todo") == 'accept':
-        # Processing when the request is sent by the sponsor
         if data.get("sender") == 'sponsor':
-          
-            ad_request.influencer_id = data.get("influencer_id")
-            ad_request.status = 'accepted_by_sponsor'
+            campaign= Campaign.query.get(ad_request.campaign_id)
+            influencer = Influencer.query.get(ad_request.influencer_id)
+            if campaign and influencer:
+                if influencer not in campaign.influencers:
+                    campaign.influencers.append(influencer)
+                ad_request.status = 'accepted'
 
-        # Processing when the request is sent by the influencer
         elif data.get("sender") == 'influencer':
-            
-            ad_request.campaign_id = data.get("campaign_id")
-            ad_request.status = 'accepted_by_influencer'
+            influencer = Influencer.query.get(ad_request.influencer_id)
+            campaign= Campaign.query.get(ad_request.campaign_id)
+            if influencer and campaign:
+                if campaign not in influencer.campaigns:
+                    influencer.campaigns.append(campaign)
+                ad_request.status = 'accepted'
 
         else:
             return jsonify({'message': 'Invalid sender type'}), 400
@@ -539,3 +538,15 @@ def process_ad_requests(id):
 
     db.session.commit()
     return jsonify({'message': f'Request has been {ad_request.status}'}), 200
+
+
+@admin_required
+@app.route('/getcampaings',methods=["GET"])
+def get_all_campaigns():
+    if request.method=='GET':
+        campaig = Campaign.query.all()
+        campaigns = []
+        for campaign in campaig:
+            if campaign.end_date<datetime.now():
+                campaigns.append(campaign)
+        return jsonify([cam.to_dic() for cam in campaigns]),200

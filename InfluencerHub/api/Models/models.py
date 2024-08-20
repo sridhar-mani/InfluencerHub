@@ -8,6 +8,13 @@ from dataclasses import asdict
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
+campaign_influencer=db.Table(
+    'campaign_influencer',
+    db.Column('campaign_id',db.Integer, db.ForeignKey('campaign.id'),primary_key=True),
+    db.Column('influencer_id',db.Integer, db.ForeignKey('influencer.id'),primary_key=True)
+)
+
+
 class User(db.Model):
     id=db.Column(db.Integer,primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -95,13 +102,15 @@ class Campaign(db.Model):
             'visibility': self.visibility,
             'goals': self.goals,
             'campaign_pic': self.campaign_pic,
-            'niche' : self.niche
+            'niche' : self.niche,
         }
 
     sponsor_id=db.Column(db.Integer,db.ForeignKey('sponsor.id'),nullable=False)
 
     ad_requests = db.relationship('Adrequest', back_populates='campaign')
     sponsor=db.relationship('Sponsor',back_populates='campaigns',lazy='select')
+
+    influencers = db.relationship('Influencer',secondary=campaign_influencer, back_populates = 'campaigns')
 
 class Influencer(db.Model):
     id=db.Column(db.Integer,primary_key=True)
@@ -117,13 +126,16 @@ class Influencer(db.Model):
             "category":self.category,
             "niche":self.niche,
             "reach":self.reach,
-            "profile_pic":self.profile_pic
+            "profile_pic":self.profile_pic,
+         
         }
-
     user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False)
 
     user = db.relationship('User',back_populates='influencer')
     ad_requests = db.relationship('Adrequest', back_populates='influencer')
+
+    campaigns = db.relationship('Campaign',secondary = campaign_influencer, back_populates='influencers')
+
 
 with app.app_context():
     db.create_all()
