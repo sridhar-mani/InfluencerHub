@@ -28,6 +28,7 @@
         <BNavItemDropdown right>
           <template #button-content>
             <BAvatar
+              v-if="userRole !== 'admin'"
               rounded="circle"
               :src="profilePic"
               size="2em"

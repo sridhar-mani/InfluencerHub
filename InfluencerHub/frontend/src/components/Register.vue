@@ -116,7 +116,7 @@
             </li>
           </ul>
         </BFormGroup>
-        <b-form-group v-if="role === 'influencer'" label-for="influencer-img">
+        <BFormGroup label-for="influencer-img">
           <div class="image-uploader">
             <input
               type="file"
@@ -128,7 +128,7 @@
               <span class="upload-text">Choose an image...</span>
             </label>
           </div>
-        </b-form-group>
+        </BFormGroup>
 
         <div class="mt-3 text-center">
           You are a <strong>{{ role }}</strong>
@@ -221,7 +221,7 @@ export default {
           formData.append("category", industry.value);
           formData.append("niche", JSON.stringify(niche.value));
           if (profilepic.value) {
-            formData.append("profile_pic", profilepic.value); // Ensure key matches backend
+            formData.append("profile_pic", profilepic.value);
           } else {
             console.log("No profile picture selected");
           }
@@ -229,6 +229,7 @@ export default {
           formData.append("companyname", name.value);
           formData.append("industry", industry.value);
           formData.append("budget", Budget.value);
+          formData.append("profile_pic", profilepic.value);
         }
         const response = await axios.post(
           "http://localhost:5000/register",

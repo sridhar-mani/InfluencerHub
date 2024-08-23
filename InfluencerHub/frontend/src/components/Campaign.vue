@@ -1,29 +1,31 @@
 <template>
   <div class="d-flex p-4">
-    <!-- Card Component -->
     <BCard
-    v-for="campaign in campaigns"
-    :title="campaign.name"
-    :key="campaign.id"
-    :img-src="base + '/' + campaign.campaign_pic"
-    img-alt="Image"
-    img-top
-    tag="article"
-    style="max-width: 15rem; max-height: 25rem;"
-    class="d-flex flex-column m-0 justify-content-between align-items-center"
-  >
-    <BCardText class="m-0" style="height: 40%; font-size: 10px;overflow: hidden;">
-      {{ campaign.description }}
-    </BCardText>
-
-    <BButton
-      variant="primary"
-      :to="{ name: `OneCampaign`, params: { username: campaign.name } }"
-      class="mt-auto m-0 align-self-center"
+      v-for="campaign in campaigns"
+      :title="campaign.name"
+      :key="campaign.id"
+      :img-src="base + '/' + campaign.campaign_pic"
+      img-alt="Image"
+      img-top
+      tag="article"
+      style="max-width: 15rem; max-height: 28rem"
+      class="d-flex flex-column"
     >
-      Go to Campaign
-    </BButton>
-  </BCard>
+      <BCardText
+        class="m-0"
+        style="height: 30%; font-size: 10px; overflow: hidden"
+      >
+        {{ campaign.description }}
+      </BCardText>
+
+      <BButton
+        variant="primary"
+        :to="{ name: `OneCampaign`, params: { username: campaign.name } }"
+        class="mt-auto m-0 align-self-center"
+      >
+        Go to Campaign
+      </BButton>
+    </BCard>
 
     <BModal
       id="modal-center"
@@ -271,7 +273,6 @@ export default {
         );
         console.log("Campaign added successfully", response.data);
         if (response.data.message.toLowerCase().includes("success")) {
-          
           resetForm();
           modal.value = false;
         } else {

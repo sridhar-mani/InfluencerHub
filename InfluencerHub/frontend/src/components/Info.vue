@@ -20,12 +20,6 @@
         <BListGroupItem href="#" class="list-group-item mb-1"
           >Cras justo odio</BListGroupItem
         >
-        <BListGroupItem href="#" class="list-group-item mb-1"
-          >Dapibus ac facilisis in</BListGroupItem
-        >
-        <BListGroupItem href="#" class="list-group-item mb-1"
-          >Vestibulum at eros</BListGroupItem
-        >
       </BListGroup>
     </BCard>
   </div>

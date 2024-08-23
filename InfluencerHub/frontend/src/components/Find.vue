@@ -3,7 +3,7 @@
     class="d-flex flex-column align-items-center w-100 justify-content-center"
   >
     <div>
-      <BNavForm class="d-flex">
+      <BNavForm class="d-flex mt-3">
         <BFormInput
           class="me-2"
           v-model="searchQuery"
@@ -14,7 +14,29 @@
       </BNavForm>
     </div>
 
-    <!-- Campaigns List -->
+    <BListGroup v-if="role === 'sponsor'" class="w-75 mt-2 mb-1 d-flex">
+      <BListGroupItem
+        v-for="s in sponsors"
+        :key="s.id"
+        class="list-group-item mb-1 d-flex justify-content-between flex-wrap align-items-center"
+      >
+        {{ s.name }} | {{ s.budget }} | {{ s.no_of_campaigns }} |
+        {{ s.industry }}
+        <div>
+          <BButton
+            pill
+            variant="outline-light"
+            :to="{ name: 'Oneprofile', params: { username: s.name } }"
+          >
+            View
+          </BButton>
+          <BButton pill variant="outline-light" @onClick="handleFlag">
+            Flag
+          </BButton>
+        </div>
+      </BListGroupItem>
+    </BListGroup>
+
     <BListGroup class="w-75 mt-2 mb-1 d-flex">
       <BListGroupItem
         v-for="c in filteredCampaigns"

@@ -16,13 +16,20 @@ campaign_influencer=db.Table(
 
 
 class User(db.Model):
-    id=db.Column(db.Integer,primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(100),nullable=False)
-    role = db.Column(db.String(20),nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    flagged = db.Column(db.Boolean, default=False)
+    profile_pic = db.Column(db.String(100),nullable=True)
+    flag_reason = db.Column(db.String(255), nullable=True)  
+
+    sponsor = db.relationship('Sponsor', back_populates='user', uselist=False)
+    influencer = db.relationship('Influencer', back_populates='user', uselist=False)
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -30,10 +37,10 @@ class User(db.Model):
             'email': self.email,
             'name': self.name,
             'role': self.role,
+            'flagged': self.flagged,
+            'flag_reason': self.flag_reason,
+            'profile_pic': self.profile_pic
         }
-
-    sponsor= db.relationship('Sponsor',back_populates='user',uselist=False)
-    influencer=db.relationship('Influencer',back_populates='user',uselist=False)
 
 class Adrequest(db.Model):
     id=db.Column(db.Integer,primary_key=True)
@@ -72,7 +79,7 @@ class Sponsor(db.Model):
             "company_name":self.company_name,
             "industry":self.industry,
             "budget":self.budget,
-            "niche":self.niche  
+            "niche":self.niche,
         }
 
     user = db.relationship('User',back_populates='sponsor')
@@ -118,7 +125,6 @@ class Influencer(db.Model):
     category=db.Column(db.String(100))
     niche=db.Column(db.String(100))
     reach=db.Column(db.Float)
-    profile_pic = db.Column(db.String(100))
     def to_dic(self):
         return {
             "id":self.id,
@@ -126,8 +132,6 @@ class Influencer(db.Model):
             "category":self.category,
             "niche":self.niche,
             "reach":self.reach,
-            "profile_pic":self.profile_pic,
-         
         }
     user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False)
 

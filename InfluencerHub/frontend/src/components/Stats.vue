@@ -61,6 +61,7 @@ export default {
     const chartKeySponsor = ref(0);
     const chartKeyInfluencer = ref(0);
     const chartKeyCampaigns = ref(0);
+    const role = ref("");
 
     // Sponsor Budgets Pie Chart
     const dataC = ref({
@@ -156,9 +157,10 @@ export default {
         const { data } = await axios.get(
           `http://localhost:5000/stats/${localStorage.getItem("username")}`
         );
+        role.value = localStorage.getItem("role");
         console.log("Loaded data:", data);
 
-        if (localStorage.getItem("role")) {
+        if (role) {
           // Sponsor Budgets Pie Chart
           const totalBudget = data.sponsordata.budget;
           dataC.value.labels = data.campaignsdata.map((m) => m.name);
