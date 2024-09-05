@@ -161,7 +161,6 @@ export default {
         console.log("Loaded data:", data);
 
         if (role) {
-          // Sponsor Budgets Pie Chart
           const totalBudget = data.sponsordata.budget;
           dataC.value.labels = data.campaignsdata.map((m) => m.name);
           dataC.value.labels.push("Unused Budget");

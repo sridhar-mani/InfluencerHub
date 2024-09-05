@@ -240,7 +240,6 @@ export default {
       const file = event.target.files[0];
       campaignImg.value = file;
       if (file) {
-        console.log("Selected file:", file.name);
         uploadText.value = file.name;
       }
     };

@@ -98,6 +98,7 @@ class Campaign(db.Model):
     goals=db.Column(db.String(100),nullable=False)
     campaign_pic = db.Column(db.String(100),nullable=True)
     niche = db.Column(db.String(100))
+    flagged = db.Column(db.Boolean, default=False)
     def to_dic(self):
         return {
             'id': self.id,
@@ -110,6 +111,7 @@ class Campaign(db.Model):
             'goals': self.goals,
             'campaign_pic': self.campaign_pic,
             'niche' : self.niche,
+            'company_name': self.sponsor.company_name if self.sponsor else None 
         }
 
     sponsor_id=db.Column(db.Integer,db.ForeignKey('sponsor.id'),nullable=False)

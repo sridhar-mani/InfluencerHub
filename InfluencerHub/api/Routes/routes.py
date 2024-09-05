@@ -224,7 +224,6 @@ def add_campaign(username):
                     campaign_fin = os.path.join(app.config['UPLOAD_FOLDER_PPIC'], unique_filename)
                     os.makedirs(app.config['UPLOAD_FOLDER_PPIC'], exist_ok=True)
                     temp.save(campaign_fin)
-                    print(campaign_fin)
                     new_campaign = Campaign(
                         name=data['name'],
                         description=data['description'],
@@ -580,3 +579,14 @@ def remove_user(username):
     db.session.delete(user)
     db.session.commit()
     return jsonify({"message":"The user has been removed successfully"}),200
+
+@admin_required
+@app.route('/flagged_data',methods = ['GET'])
+def get_flaggerData():
+    users = User.query.filter(User.role != 'admin').all()
+    campaigns = Campaign.query.filter(Campaign.flagged == True).all()
+
+    return jsonify({
+        "users":[user.to_dict() for user in users],
+        "campaigns":[campaign.to_dic() for campaign in campaigns]
+    }),200
