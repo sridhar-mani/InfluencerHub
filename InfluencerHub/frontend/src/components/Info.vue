@@ -21,7 +21,7 @@
     </BCard>
     <BCard
       v-if="
-        campaginsUsers.campaigns.length > 0 || campaginsUsers.users.length > 0
+        campaginsUsers.campaigns?.length > 0 || campaginsUsers.users?.length > 0
       "
       header="Flagged Users/Campaigns:"
       class="w-75"

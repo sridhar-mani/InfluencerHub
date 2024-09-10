@@ -3,7 +3,7 @@
     <BRow>
       <BCol>
         <Pie
-          v-if="dataC.labels.length > 0"
+          v-if="dataC.labels?.length > 0"
           :key="chartKeySponsor"
           :data="dataC"
           :options="optionsC"
@@ -161,20 +161,20 @@ export default {
         console.log("Loaded data:", data);
 
         if (role) {
-          const totalBudget = data.sponsordata.budget;
-          dataC.value.labels = data.campaignsdata.map((m) => m.name);
-          dataC.value.labels.push("Unused Budget");
-          dataC.value.datasets[0].data = data.campaignsdata.map(
+          const totalBudget = data.sponsordata?.budget;
+          dataC.value.labels = data.campaignsdata?.map((m) => m.name);
+          dataC.value.labels?.push("Unused Budget");
+          dataC.value.datasets[0].data = data.campaignsdata?.map(
             (m) => m.budget
           );
           const unusedBudget =
             totalBudget -
-            dataC.value.datasets[0].data.reduce(
+            dataC.value.datasets[0].data?.reduce(
               (tot, budget) => tot + budget,
               0
             );
-          dataC.value.datasets[0].data.push(unusedBudget);
-          dataC.value.datasets[0].backgroundColor = dataC.value.labels.map(
+          dataC.value.datasets[0].data?.push(unusedBudget);
+          dataC.value.datasets[0].backgroundColor = dataC.value.labels?.map(
             () => {
               const letters = "0123456789ABCDEF";
               let color = "#";
@@ -212,7 +212,7 @@ export default {
           const currentMonth = currentDate.getMonth();
           const currentYear = currentDate.getFullYear();
 
-          data.campaignsdata.forEach((campaign) => {
+          data.campaignsdata?.forEach((campaign) => {
             const startDate = new Date(campaign.start_date);
             const endDate = new Date(campaign.end_date);
 

@@ -69,7 +69,7 @@
         <BCol md="9">
           <h2>Welcome {{ username }}</h2>
 
-          <h3 class="mt-4">Active Campaigns:</h3>
+          <h3 class="mt-4" v-if="campaigns.length > 0">Active Campaigns:</h3>
           <BListGroup
             class="w-100 mt-2 mb-1 d-flex"
             v-for="c in campaigns"

@@ -121,6 +121,7 @@
             <input
               type="file"
               id="influencer-img"
+              accept="image/*"
               class="file-input"
               @change="handleFileChange"
             />
