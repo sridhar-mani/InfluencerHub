@@ -18,13 +18,8 @@ const routes = [
   },
   {
     path: "/",
-    component: () => import("./App.vue"), // Lazy loading the App component
+    name: "Home",
     children: [
-      {
-        path: "",
-        name: "Home",
-        component: Home,
-      },
       {
         path: "info",
         name: "Info",

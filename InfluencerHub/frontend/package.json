@@ -14,12 +14,14 @@
     "bootstrap-vue-3": "^0.3.12",
     "bootstrap-vue-next": "^0.23.1",
     "dotenv": "^16.4.5",
+    "lodash": "^4.17.21",
     "vite-plugin-env-compatible": "^2.0.1",
     "vue": "^3.4.31",
     "vue-chartjs": "^5.3.1",
     "vue-router": "^4.4.0"
   },
   "devDependencies": {
+    "@babel/plugin-proposal-optional-chaining": "^7.21.0",
     "@vitejs/plugin-vue": "^5.1.2",
     "@vitejs/plugin-vue-jsx": "^4.0.1",
     "typescript": "^5.2.2",

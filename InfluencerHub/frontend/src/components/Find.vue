@@ -14,7 +14,7 @@
       </BNavForm>
     </div>
 
-    <BListGroup v-if="role === 'sponsor'" class="w-75 mt-2 mb-1 d-flex">
+    <BListGroup v-if="role === 'admin'" class="w-75 mt-2 mb-1 d-flex">
       <BListGroupItem
         v-for="s in sponsors"
         :key="s.id"
@@ -26,7 +26,7 @@
           <BButton
             pill
             variant="outline-light"
-            :to="{ name: 'Oneprofile', params: { username: s.name } }"
+            :to="{ name: 'Oneprofile', params: { username: s.username } }"
           >
             View
           </BButton>
@@ -60,7 +60,10 @@
       </BListGroupItem>
     </BListGroup>
 
-    <BListGroup class="w-75 mt-2 mb-1 d-flex">
+    <BListGroup
+      v-if="role === 'admin' || role === 'sponsor'"
+      class="w-75 mt-2 mb-1 d-flex"
+    >
       <BListGroupItem
         v-for="i in influencers"
         :key="i.id"
@@ -166,6 +169,7 @@ export default {
     const message = ref("");
     const requirements = ref("");
     const amount = ref(null);
+    const sponsors = ref([]);
 
     const loadSession = async () => {
       const username = localStorage.getItem("username");
@@ -182,10 +186,16 @@ export default {
           `http://localhost:5000/campaigns/${username}`
         );
         if (userRole === "influencer") {
-          // Handle influencer-specific logic here if needed
-        } else {
+          campaigns.value = response.data.campaigns;
+        } else if (userRole === "sponsor") {
           campaigns.value = response.data.campaigns;
           influencers.value = response.data.influencers;
+        } else {
+          console.log(response.data);
+          campaigns.value = response.data.campaigns;
+          influencers.value = response.data.influencers;
+          sponsors.value = response.data.sponsors;
+          console.log(sponsors);
         }
       } catch (error) {
         console.error("Error loading session data:", error);
@@ -233,6 +243,7 @@ export default {
 
     return {
       campaigns,
+      sponsors,
       role,
       influencers,
       searchQuery,

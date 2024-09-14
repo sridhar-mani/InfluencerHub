@@ -20,8 +20,8 @@ export default {
     const message = ref("");
 
     onMounted(() => {
-      const role = localStorage.getItem("role");
-      if (!role) {
+      const userRole = localStorage.getItem("role");
+      if (!userRole) {
         router.push({ name: "Login" });
       }
       if (localStorage.getItem("role") === "admin") {
@@ -32,7 +32,7 @@ export default {
         showToast.value = true;
       }
     });
-    return { showToast, message };
+    return { showToast, message, userRole };
   },
 };
 </script>

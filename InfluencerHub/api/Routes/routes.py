@@ -1,10 +1,13 @@
 from flask import Flask,session,render_template, request, redirect, url_for, flash, make_response, jsonify
 from app import app
+from app import cache
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
 from datetime import date,timedelta, datetime
 from ..Models.models import User,db, Sponsor, Influencer,Campaign, Adrequest
+from celery_app import celery
+from flask_jwt_extended import JWTManager, create_access_token,jwt_required,get_jwt_identity
 import os
 import uuid
 import pathlib
@@ -25,10 +28,10 @@ def login():
         if user and check_password_hash(user.password,password):
             session['user_id']=user.id
             print(session['user_id'])
-            return jsonify({'message':"Login Successful","user":user.to_dict()}), 200
+            access_token=create_access_token(identity=user.id)
+            return jsonify({'message':"Login Successful",'access_token':access_token,"user":user.to_dict()}), 200
         else:
             return jsonify({'message':"Invalid Credentials"}), 401
-        
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -130,6 +133,7 @@ def admin_required(func):
 
 @auth_required
 @app.route('/users/<string:username>', methods=['GET', 'PUT', 'DELETE'])
+@cache.cached(timeout=300, key_prefix=lambda: f"user_{request.view_args['username']}")
 def handle_user(username):
     user = User.query.filter_by(username=username).first_or_404()
 
@@ -178,7 +182,7 @@ def handle_user(username):
                 sponsor.budget = data.get('budget', sponsor.budget)
 
         db.session.commit()
-
+        cache.delete(f"user_{request.view_args['username']}")
         # Return updated user details as JSON
         return jsonify(user.to_dict()), 200
 
@@ -186,12 +190,13 @@ def handle_user(username):
         # Delete the user
         db.session.delete(user)
         db.session.commit()
-
+        cache.delete(f"user_{request.view_args['username']}")
         # Return a successful response
         return '', 204
 
 
 @app.route('/users/get_influencers', methods=['GET'])
+@cache.cached(timeout=300, key_prefix='all_influencers')
 def get_influencers():
     query = request.args.get('query', '')
     if query:
@@ -238,6 +243,9 @@ def add_campaign(username):
                     )
                     db.session.add(new_campaign)
                     db.session.commit()
+                    cache.delete(f"campaigns_{request.view_args['username']}")
+                    cache.delete('all_campaigns')
+                    cache.delete(f"stats_{request.view_args['username']}")
                     return jsonify({'message': 'Successfull',"campaign":new_campaign.name}), 201
                 else:
                     return jsonify({'message': 'Invalid file format. Please use PNG, TIFF, JPG, or JPEG.'}), 400
@@ -255,12 +263,17 @@ def add_campaign(username):
                 )
                 db.session.add(new_campaign)
                 db.session.commit()
+                cache.delete(f"campaigns_{request.view_args['username']}")
+                cache.delete('all_campaigns')
+                cache.delete(f"stats_{request.view_args['username']}")
                 return jsonify({'message': 'Successfull',"campaign":new_campaign.name}), 201
     else:
         return jsonify({'message': 'Unauthorized role'}), 403
 
 @auth_required
 @app.route("/campaigns/<string:username>", methods=['GET'])
+@cache.cached(timeout=300, key_prefix=lambda: f"campaigns_{request.view_args['username']}")
+
 def get_campaigns(username):
     user = User.query.filter_by(username=username).first()
     if user:
@@ -282,13 +295,18 @@ def get_campaigns(username):
                 'ad_requests': [ad_request.to_dict() for ad_request in ad_requests]
             }), 200
         else:
-            return jsonify({'message': 'Unauthorized role'}), 403
+            campaigns = Campaign.query.all()
+            influencer = Influencer.query.all()
+            sponsor = User.query.filter_by(role='sponsor').all()
+            return jsonify({'campaigns':[campaign.to_dic() for campaign in campaigns],'influencers':[influ.to_dic() for influ in influencer],'sponsors':[spons.to_dict() for spons in sponsor]}), 200
     else:
         return jsonify({'message': 'User not found'}), 404
 
 
 @auth_required
 @app.route("/campaign/<string:username>/<string:name>", methods=['GET'])
+@cache.cached(timeout=300, key_prefix=lambda: f"campaigns_{request.view_args['username']}_{name}")
+
 def get_campaign(username,name):
     user = User.query.filter_by(username=username).first()
     if user.role == 'sponsor':
@@ -352,6 +370,7 @@ def add_adrequest(username, campaign_id):
 
 @auth_required
 @app.route("/stats/<string:username>", methods=['GET'])
+@cache.cached(timeout=300, key_prefix=lambda: f"stats_{request.view_args['username']}")
 def get_stats(username):
     user = User.query.filter_by(username=username).first()
     if user:
@@ -418,7 +437,7 @@ def submit_request(type, id):
         campaign_id = data.get('campaign_id', None)
 
         if not campaign_id:
-            print("campaign",campaign_id)
+
             return jsonify({'message': 'Campaign ID is required'}), 400
 
         if type == 'influencer':
@@ -438,6 +457,7 @@ def submit_request(type, id):
             )
             db.session.add(adrequest_new)
             db.session.commit()
+            cache.delete(f"stats_{request.view_args['username']}")
 
             return jsonify({'message': 'Request submitted successfully'}), 201
 
@@ -456,6 +476,8 @@ def submit_request(type, id):
             )
             db.session.add(adrequest_new)
             db.session.commit()
+            cache.delete(f"stats_{request.view_args['username']}")
+
 
             return jsonify({'message': 'Request submitted successfully'}), 201
         else:
@@ -463,11 +485,14 @@ def submit_request(type, id):
 
     except Exception as e:
         db.session.rollback()
+        cache.delete(f"stats_{request.view_args['username']}")
+
         print("Error submitting request:", e)
         return jsonify({'message': 'Failed to submit request'}), 500
 
 @auth_required
 @app.route("/adrequests/<string:username>", methods=['GET'])
+@cache.cached(timeout=300,key_prefix=lambda: f"adrequests_{request.view_args['username']}")
 def get_adrequests(username):
     user = User.query.filter_by(username=username).first()
     print(user)
@@ -533,12 +558,14 @@ def process_ad_requests(id):
         ad_request.status = 'rejected'
     else:
         return jsonify({'message': 'Invalid action'}), 400
+    cache.delete(f"stats_{request.view_args['username']}")
 
     db.session.commit()
     return jsonify({'message': f'Request has been {ad_request.status}'}), 200
 
 @admin_required
 @app.route('/getcampaings',methods=["GET"])
+@cache.cached(timeout=300, key_prefix="active_campaigns")
 def get_all_campaigns():
     campaig = Campaign.query.all()
     campaigns = []
@@ -557,6 +584,8 @@ def flag_user(username):
     user.flagged=True
     user.flag_reason = data.get("flag_reason")
     db.session.commit()
+    cache.delete(f"stats_{request.view_args['username']}")
+
     return jsonify({"message":"The user has been flagged successfully"}), 200
 
 @admin_required
@@ -567,6 +596,8 @@ def unflag_user(username):
         return jsonify({"message":"User not found"}), 404
     user.flagged=False
     user.flag_reason = None
+    cache.delete(f"stats_{request.view_args['username']}")
+
     db.session.commit()
     return jsonify({"message":"The user has been unflagged successfully"}), 200
 
@@ -578,10 +609,13 @@ def remove_user(username):
         return jsonify({"message":"User not found"}), 404
     db.session.delete(user)
     db.session.commit()
+    cache.delete(f"stats_{request.view_args['username']}")
+
     return jsonify({"message":"The user has been removed successfully"}),200
 
 @admin_required
 @app.route('/flagged_data',methods = ['GET'])
+@cache.cached(timeout=300, key_prefix='flagged_data')
 def get_flaggerData():
     users = User.query.filter(User.role != 'admin').all()
     campaigns = Campaign.query.filter(Campaign.flagged == True).all()
@@ -590,3 +624,24 @@ def get_flaggerData():
         "users":[user.to_dict() for user in users],
         "campaigns":[campaign.to_dic() for campaign in campaigns]
     }),200
+
+@celery.task
+def export_campaings_to_csv(sponsor_id):
+    sponsor = Sponsor.query.get(sponsor_id)
+    campaigns = Campaign.query.filter_by(sponsor_id=sponsor_id).all()
+    csv_file=f"{sponsor.company_name}_campaigns.csv"
+    with open(csv_file,'w') as file:
+        writer = csv.writer(file)
+        writer.writerow(['Name','Description','Budget','Start Date','End Date'])
+        for cam in campaigns:
+            writer.writerow([cam.name,cam.description,cam.budget,cam.start_date,cam.end_date])
+    print(f"CSV export completed for {sponsor.company_name}")
+
+@app.route('/export_campaign',methods=['POST'])
+@auth_required
+def export_campaigns():
+    user=User.query.get(session['user_id'])
+    if user.role != 'sponsor':
+        return jsonify({"message":"Unauthorized"}),403
+    export_campaings_to_csv.delay(user.id)
+    return jsonify({'message':'Export initiated successfully'}),200

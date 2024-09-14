@@ -97,7 +97,7 @@ export default {
         console.log("login success", response.data);
         localStorage.setItem("username", response.data.user.username);
         localStorage.setItem("role", response.data.user.role);
-        router.push({ name: "Home" });
+        router.push({ name: "Find" });
       } catch (err) {
         // showToast?.({
         //   props: {
