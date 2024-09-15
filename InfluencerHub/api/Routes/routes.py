@@ -394,7 +394,7 @@ def get_stats(username):
 
             influencers_budget = [
                 {"influencer": ad.influencer.name, "budget": ad.payment_amount}
-                for ad in ad_requests if ad.influencer_id != 0 and ad.influencer is not None
+                for ad in ad_requests if ad.influencer_id != 0 and ad.influencer is not Np
             ]
 
             response_data = {

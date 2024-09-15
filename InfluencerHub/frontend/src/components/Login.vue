@@ -34,7 +34,7 @@
         </BFormFloatingLabel>
         <template> </template>
         <div class="d-flex w-100 justify-content-evenly mt-3 g-3">
-          <BButton type="submit" variant="success" @click="login"
+          <BButton type="submit" variant="success" @click.prevent="login"
             >Login</BButton
           >
           <BButton type="button" variant="primary" @click="register"
@@ -97,7 +97,7 @@ export default {
         console.log("login success", response.data);
         localStorage.setItem("username", response.data.user.username);
         localStorage.setItem("role", response.data.user.role);
-        router.push({ name: "Find" });
+        router.push({ name: "Home" });
       } catch (err) {
         // showToast?.({
         //   props: {

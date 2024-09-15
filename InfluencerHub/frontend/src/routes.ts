@@ -1,8 +1,6 @@
 // router.js
 import { createRouter, createWebHistory } from "vue-router";
-import Login from "./components/Login.vue";
 import Home from "./components/Home.vue";
-import Register from "./components/Register.vue";
 import Info from "./components/Info.vue";
 import Find from "./components/Find.vue";
 import Stats from "./components/Stats.vue";
@@ -12,13 +10,20 @@ import OneCampaign from "./components/OneCampaign.vue";
 
 const routes = [
   {
+    path: "/register",
+    name: "Register",
+    component: () => import("./components/Register.vue"),
+  },
+  {
     path: "/login",
     name: "Login",
-    component: Login,
+    component: () => import("./components/Login.vue"),
   },
+
   {
     path: "/",
     name: "Home",
+    component: Home,
     children: [
       {
         path: "info",
@@ -52,11 +57,6 @@ const routes = [
         component: Profile,
       },
     ],
-  },
-  {
-    path: "/register",
-    name: "Register",
-    component: Register,
   },
 ];
 

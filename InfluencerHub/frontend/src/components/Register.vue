@@ -145,9 +145,9 @@
   </div>
 </template>
 <script>
-import { ref, computed, getCurrentInstance } from "vue";
+import { ref, computed } from "vue";
 import axios from "axios";
-import { useRouter } from "vue-router";
+import router from "../routes";
 
 export default {
   name: "Register",
@@ -157,7 +157,6 @@ export default {
     const email = ref("");
     const password = ref("");
     const role = ref("influencer");
-    const { proxy } = getCurrentInstance();
     const industry = ref("");
     const niche = ref([]);
     const Budget = ref(0);
@@ -169,8 +168,8 @@ export default {
       "Tiktok",
       "Select your niche",
     ]);
-    const router = useRouter();
     const profilepic = ref(null);
+
     const handleFileChange = () => {
       const file = document.getElementById("influencer-img").files[0];
       profilepic.value = file;
@@ -203,7 +202,6 @@ export default {
         selectedTag.value = "";
       }
     };
-
     const removeTag = (tag) => {
       niche.value = niche.value.filter((t) => t !== tag);
     };
@@ -243,7 +241,6 @@ export default {
         );
 
         if (response.data.message.toLowerCase().includes("success")) {
-          // proxy.$refs.toast.show("User created successfully");
           router.push({ name: "Login" });
         } else {
           console.log("User not created");
