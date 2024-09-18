@@ -43,7 +43,11 @@
           <BCard class="profile-card w-75">
             <div class="profile-img-wrapper">
               <BImg
-                :src="mainProps.src"
+                :src="
+                  mainProps.src
+                    ? mainProps.src
+                    : base + 'profile_pics/blank-profile-picture-973460_640.png'
+                "
                 class="profile-img"
                 rounded
                 alt="Profile picture"

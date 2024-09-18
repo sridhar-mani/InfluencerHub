@@ -7,6 +7,7 @@ import Stats from "./components/Stats.vue";
 import Campaign from "./components/Campaign.vue";
 import Profile from "./components/Profile.vue";
 import OneCampaign from "./components/OneCampaign.vue";
+import OneProfile from "./components/OneProfile.vue";
 
 const routes = [
   {
@@ -19,11 +20,22 @@ const routes = [
     name: "Login",
     component: () => import("./components/Login.vue"),
   },
-
+  {
+    path: "/",
+    redirect: () => {
+      const role = localStorage.getItem("role");
+      if (role === "admin" || role === "influencer" || role === "sponsor") {
+        return "/home/find";
+      } else {
+        return "/login";
+      }
+    },
+  },
   {
     path: "/",
     name: "Home",
     component: Home,
+    meta: { requiresAuth: true },
     children: [
       {
         path: "info",
@@ -52,6 +64,12 @@ const routes = [
         props: true,
       },
       {
+        path: "profile/:username?",
+        name: "OneProfile",
+        component: OneProfile,
+        props: true,
+      },
+      {
         path: "profile",
         name: "Profile",
         component: Profile,
@@ -63,6 +81,19 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+router.beforeEach((to, from, next) => {
+  const role = localStorage.getItem("role");
+  if (to.matched.some((record) => record.meta.requiresAuth)) {
+    if (role === "admin" || role === "influencer" || role === "sponsor") {
+      next();
+    } else {
+      next({ name: "Login" });
+    }
+  } else {
+    next();
+  }
 });
 
 export default router;

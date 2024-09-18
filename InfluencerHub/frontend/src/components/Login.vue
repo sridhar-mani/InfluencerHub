@@ -2,6 +2,14 @@
   <div
     class="d-flex flex-column vh-100 vw-100 justify-content-center align-items-center"
   >
+    <Teleport to="body">
+      <div :class="'top-0 end-0'" class="toast-container position-fixed p-3">
+        <BToast v-model="showToast" class="specialPop">
+          <template #title>{{ message }}</template>
+          {{ message }}
+        </BToast>
+      </div>
+    </Teleport>
     <div class="w-30">
       <h2 class="d-flex justify-content-center mb-5">Influencer App Login</h2>
 
@@ -42,14 +50,6 @@
           >
         </div>
       </BForm>
-      <Teleport to="body">
-        <div :class="'top-0 end-0'" class="toast-container position-fixed p-3">
-          <BToast v-model="showToast">
-            <template #title>{{ message }}</template>
-            {{ message }}
-          </BToast>
-        </div>
-      </Teleport>
     </div>
   </div>
 </template>
@@ -95,33 +95,26 @@ export default {
           }
         );
         console.log("login success", response.data);
-        localStorage.setItem("username", response.data.user.username);
-        localStorage.setItem("role", response.data.user.role);
-        router.push({ name: "Home" });
+        if (response.data) {
+          localStorage.setItem("username", response.data.user.username);
+          localStorage.setItem("role", response.data.user.role);
+          localStorage.setItem("token", response.data.token);
+          router.push({ name: "Find" });
+        }
       } catch (err) {
-        // showToast?.({
-        //   props: {
-        //     title: "Counting down!",
-        //     variant: "info",
-        //     pos: "middle-center",
-        //     value: 10000,
-        //     interval: 100,
-        //     progressProps: {
-        //       variant: "danger",
-        //     },
-        //     body: "Watch me!",
-        //   },
-        // });
-        console.log(err);
-        if (err.response.status === 401) {
+        const toastComp = document.getElementsByClassName("specialPop")[0];
+        if (err.response) {
+          toastComp.style.backgroundColor = "red";
+        }
+        if (err.response?.status === 401) {
           message.value = "Invalid username or password";
           showToast.value = true;
         }
-        if (err.response.status === 500) {
+        if (err.response?.status === 500) {
           message.value = "Server error";
           showToast.value = true;
         }
-        if (err.response.status === 404) {
+        if (err.response?.status === 404) {
           message.value = "User not found";
           showToast.value = true;
         }

@@ -1,88 +1,135 @@
 <template>
-  <div
-    class="d-flex flex-column align-items-center w-100 justify-content-center"
-  >
-    <div>
-      <BNavForm class="d-flex mt-3">
-        <BFormInput
-          class="me-2"
-          v-model="searchQuery"
-          placeholder="Search"
-          @input="filterContent"
-        />
-        <BButton type="button" variant="outline-success">Filter</BButton>
-      </BNavForm>
+  <div class="container py-4">
+    <div class="row justify-content-center mb-4">
+      <div class="col-md-8">
+        <BNavForm class="d-flex mb-3">
+          <BFormInput
+            class="me-2"
+            v-model="searchQuery"
+            placeholder="Search for campaigns, sponsors, or influencers"
+            @input="filterContent"
+            size="lg"
+          />
+          <BButton type="button" variant="outline-success" size="lg"
+            >Filter</BButton
+          >
+        </BNavForm>
+      </div>
     </div>
 
-    <BListGroup v-if="role === 'admin'" class="w-75 mt-2 mb-1 d-flex">
-      <BListGroupItem
-        v-for="s in sponsors"
-        :key="s.id"
-        class="list-group-item mb-1 d-flex justify-content-between flex-wrap align-items-center"
-      >
-        {{ s.name }} | {{ s.budget }} | {{ s.no_of_campaigns }} |
-        {{ s.industry }}
-        <div>
-          <BButton
-            pill
-            variant="outline-light"
-            :to="{ name: 'Oneprofile', params: { username: s.username } }"
-          >
-            View
-          </BButton>
-          <BButton pill variant="outline-light" @onClick="handleFlag">
-            Flag
-          </BButton>
+    <div class="row justify-content-center">
+      <div v-if="role === 'admin' && sponsors.length > 0" class="col-md-8 mb-4">
+        <h4>Sponsors</h4>
+        <div
+          v-for="s in sponsors"
+          :key="s.id"
+          class="card mb-3 shadow-sm animated-card"
+        >
+          <div class="card-header bg-light d-flex justify-content-between">
+            <span>{{ s.name }}</span>
+            <span class="badge bg-primary">Sponsor</span>
+          </div>
+          <div class="card-body">
+            <div class="more-info">
+              <p>Industry: {{ s.industry }}</p>
+              <p>Budget: {{ s.budget }}</p>
+              <p>Name: {{ s.name }}</p>
+            </div>
+          </div>
+          <div class="card-footer text-end">
+            <BButton
+              pill
+              variant="outline-info"
+              :to="{ name: 'OneProfile', params: { username: s.username } }"
+              class="me-2"
+            >
+              View
+            </BButton>
+            <BButton pill variant="outline-danger" @click="handleFlag">
+              Flag
+            </BButton>
+          </div>
         </div>
-      </BListGroupItem>
-    </BListGroup>
+      </div>
 
-    <BListGroup class="w-75 mt-2 mb-1 d-flex">
-      <BListGroupItem
-        v-for="c in filteredCampaigns"
-        :key="c.id"
-        href="#"
-        class="list-group-item mb-1 d-flex justify-content-between flex-wrap align-items-center"
-      >
-        {{ c.name }} | {{ c.goals }} | ₹{{ c.budget }} | {{ c.niche }} |
-        {{ c.visibility }}
-        <div class="d-flex gap-2">
-          <BButton
-            pill
-            variant="outline-primary"
-            :to="{ name: 'OneCampaign', params: { username: c.name } }"
-            >View</BButton
-          >
-          <BButton pill variant="outline-success" v-if="role === 'influencer'"
-            >Request</BButton
-          >
-        </div>
-      </BListGroupItem>
-    </BListGroup>
+      <div v-if="filteredCampaigns.length > 0" class="col-md-8 mb-4">
+        <h4>Campaigns</h4>
+        <div
+          v-for="c in filteredCampaigns"
+          :key="c.id"
+          class="card mb-3 shadow-sm animated-card"
+        >
+          <div class="card-header bg-light d-flex justify-content-between">
+            <span>{{ c.name }}</span>
+            <span class="badge bg-success">{{ c.visibility }}</span>
+          </div>
+          <div class="card-body">
+            <p>Niche: {{ c.niche }}</p>
 
-    <BListGroup
-      v-if="role === 'admin' || role === 'sponsor'"
-      class="w-75 mt-2 mb-1 d-flex"
-    >
-      <BListGroupItem
-        v-for="i in influencers"
-        :key="i.id"
-        href="#"
-        class="list-group-item mb-1 d-flex justify-content-between flex-wrap align-items-center"
-      >
-        {{ i.name }} | {{ i.category }} | {{ i.reach }} | {{ i.niche }}
-        <div class="d-flex gap-2">
-          <BButton pill variant="outline-primary">View</BButton>
-          <BButton
-            pill
-            variant="outline-success"
-            v-if="role === 'sponsor'"
-            @click="handleRequest(i, 'influencer')"
-            >Request</BButton
-          >
+            <div class="more-info">
+              <p>Goals: {{ c.goals }}</p>
+              <p>Budget: ₹{{ c.budget }}</p>
+            </div>
+          </div>
+          <div class="card-footer text-end">
+            <BButton
+              pill
+              variant="outline-primary"
+              :to="{ name: 'OneCampaign', params: { username: c.name } }"
+              class="me-2"
+            >
+              View
+            </BButton>
+            <BButton
+              pill
+              variant="outline-success"
+              v-if="role === 'influencer'"
+            >
+              Request
+            </BButton>
+          </div>
         </div>
-      </BListGroupItem>
-    </BListGroup>
+      </div>
+
+      <div
+        v-if="
+          (role === 'admin' || role === 'sponsor') && influencers.length > 0
+        "
+        class="col-md-8 mb-4"
+      >
+        <h4>Influencers</h4>
+        <div
+          v-for="i in influencers"
+          :key="i.id"
+          class="card mb-3 shadow-sm animated-card"
+        >
+          <div class="card-header bg-light d-flex justify-content-between">
+            <span>{{ i.name }}</span>
+            <span class="badge bg-warning">Influencer</span>
+          </div>
+          <div class="card-body">
+            <p>Category: {{ i.category }}</p>
+            <div class="more-info">
+              <p>Reach: {{ i.reach }}</p>
+              <p>Niche: {{ i.niche }}</p>
+            </div>
+          </div>
+          <div class="card-footer text-end">
+            <BButton pill variant="outline-primary" class="me-2">
+              View
+            </BButton>
+            <BButton
+              pill
+              variant="outline-success"
+              v-if="role === 'sponsor'"
+              @click="handleRequest(i, 'influencer')"
+            >
+              Request
+            </BButton>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <BModal
       id="modal-center"
@@ -191,7 +238,6 @@ export default {
           campaigns.value = response.data.campaigns;
           influencers.value = response.data.influencers;
         } else {
-          console.log(response.data);
           campaigns.value = response.data.campaigns;
           influencers.value = response.data.influencers;
           sponsors.value = response.data.sponsors;
@@ -207,6 +253,7 @@ export default {
         campaign.name.toLowerCase().includes(searchQuery.value.toLowerCase())
       );
     });
+    console.log(filteredCampaigns);
 
     const handleRequest = async (influer, type) => {
       influencer.value = influer.id;
@@ -262,27 +309,25 @@ export default {
 </script>
 
 <style scoped>
-.modal-content {
-  background-color: #f8f9fa;
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 20px;
+.animated-card {
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+.animated-card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
-.modal-header,
-.modal-footer {
-  border: none;
+.more-info {
+  display: none;
 }
 
-.modal-header .modal-title {
-  font-weight: 600;
+.animated-card:hover .more-info {
+  display: block;
 }
 
-.form-label {
-  font-weight: 500;
-}
-
-.b-button {
-  min-width: 100px;
+.more-info p {
+  margin: 0;
+  padding: 0;
+  opacity: 0.9;
 }
 </style>

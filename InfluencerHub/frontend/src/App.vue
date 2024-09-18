@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="w-100">
     <Navbar v-if="userRole !== ''" />
     <router-view />
   </div>
@@ -9,7 +9,7 @@
 import { ref, onMounted, watch } from "vue";
 import Navbar from "./components/Navbar.vue";
 import Toast from "./components/Toast.vue";
-import { useRouter } from "vue-router";
+import router from "./routes";
 
 export default {
   name: "App",
@@ -20,20 +20,15 @@ export default {
   setup() {
     const userRole = ref("");
 
-    const route = useRouter();
-
     const updateRole = () => {
-      userRole.value = localStorage.getItem("role") || ""; // Properly access the reactive reference
-      if (userRole.value === "") {
-        route.push({ name: "Login" });
-      }
+      userRole.value = localStorage.getItem("role") || "";
     };
 
     onMounted(updateRole);
 
-    watch(route.currentRoute, updateRole);
+    watch(router.currentRoute, updateRole);
 
-    return { userRole }; // Return the reactive reference
+    return { userRole };
   },
 };
 </script>

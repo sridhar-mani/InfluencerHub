@@ -4,6 +4,7 @@ import redis
 import redis.commands.json, redis.commands.timeseries
 from flask_caching import Cache
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
+from flask_mail import Mail
 
 app =Flask(__name__)
 CORS(app)
@@ -11,6 +12,7 @@ CORS(app)
 import config
 
 cache = Cache(app)
+mail = Mail(app)
 
 from api.Models import models
 jwt = JWTManager(app)

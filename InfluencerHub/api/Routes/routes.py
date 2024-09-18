@@ -4,6 +4,7 @@ from app import cache
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 from functools import wraps
+from sqlalchemy.orm import joinedload
 from datetime import date,timedelta, datetime
 from ..Models.models import User,db, Sponsor, Influencer,Campaign, Adrequest
 from celery_app import celery
@@ -25,11 +26,16 @@ def login():
             username=data.get('username')
             password=data.get('password')
             user=User.query.filter_by(username=username).first()
-        if user and check_password_hash(user.password,password):
-            session['user_id']=user.id
-            print(session['user_id'])
-            access_token=create_access_token(identity=user.id)
-            return jsonify({'message':"Login Successful",'access_token':access_token,"user":user.to_dict()}), 200
+            if user and check_password_hash(user.password,password):
+                session['user_id']=user.id
+                access_token=create_access_token(identity=user.id, additional_claims={'role':user.role,'username':user.username})
+                if user.role=='sponsor':
+                    sponsor=Sponsor.query.filter_by(user_id=user.id).first().is_approved    
+                    if sponsor:
+                        return jsonify({'message':"Login Successful",'access_token':access_token,"user":user.to_dict()}), 200
+                    else:
+                        return jsonify({'message':"Profile still not verified"}), 404
+                return jsonify({'message':"Login Successful",'access_token':access_token,"user":user.to_dict()}), 200
         else:
             return jsonify({'message':"Invalid Credentials"}), 401
 
@@ -73,7 +79,7 @@ def register():
                             companyname = request.form.get('companyname')
                             industry = request.form.get('industry')
                             budget = request.form.get('budget')
-                            new_role_user = Sponsor(company_name=companyname, industry=industry, budget=budget, user=new_user)
+                            new_role_user = Sponsor(company_name=companyname, industry=industry, budget=budget, user=new_user,  is_approved=False )
                         db.session.add(new_role_user)
                         db.session.commit()
 
@@ -92,16 +98,7 @@ def register():
             print(f"Error occurred: {str(e)}")
             return jsonify({'message': f'Error occurred: {str(e)}'}), 500
 
-@app.route('/users',methods=['GET','POST'])
-def manage_user():
-    if request.method=='POST':
-        data=request.get_json()
-        new_user=User(username=data['username'],password=data['password'],email=data['email'],name=data['name'],role=data['role'])
-        db.session.add(new_user)
-        db.session.commit()
-        return jsonify(new_user.to_dict()),201
-    user=User.query.all()
-    return jsonify([us.to_dict() for us in user])
+
 
 @app.route('/',methods=['GET'])
 def Home():
@@ -131,7 +128,21 @@ def admin_required(func):
         return func(*args,**kwargs)
     return inner
 
+@app.route('/users',methods=['GET','POST'])
+@admin_required
+@jwt_required()
+def manage_user():
+    if request.method=='POST':
+        data=request.get_json()
+        new_user=User(username=data['username'],password=data['password'],email=data['email'],name=data['name'],role=data['role'])
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify(new_user.to_dict()),201
+    user=User.query.all()
+    return jsonify([us.to_dict() for us in user])
+
 @auth_required
+@jwt_required()
 @app.route('/users/<string:username>', methods=['GET', 'PUT', 'DELETE'])
 @cache.cached(timeout=300, key_prefix=lambda: f"user_{request.view_args['username']}")
 def handle_user(username):
@@ -183,19 +194,17 @@ def handle_user(username):
 
         db.session.commit()
         cache.delete(f"user_{request.view_args['username']}")
-        # Return updated user details as JSON
         return jsonify(user.to_dict()), 200
 
     elif request.method == 'DELETE':
-        # Delete the user
         db.session.delete(user)
         db.session.commit()
         cache.delete(f"user_{request.view_args['username']}")
-        # Return a successful response
         return '', 204
 
 
 @app.route('/users/get_influencers', methods=['GET'])
+@jwt_required()
 @cache.cached(timeout=300, key_prefix='all_influencers')
 def get_influencers():
     query = request.args.get('query', '')
@@ -209,26 +218,49 @@ def get_influencers():
 
 
 @auth_required
+@jwt_required()
 @app.route("/add_campaign/<string:username>", methods=['POST'])
 def add_campaign(username):
-    temp=request.files.get("campaign_img")
+    temp = request.files.get("campaign_img")
     user = User.query.filter_by(username=username).first()
+
     if user.role == 'sponsor':
         data = request.form.to_dict()
         sponsor = Sponsor.query.filter_by(user_id=user.id).first()
         sponsor_budget = sponsor.budget
         allowed_formats = {'png', 'tiff', 'jpg', 'jpeg'}
 
+        # Check if campaign already exists by its name or another unique identifier
+        existing_campaign = Campaign.query.filter_by(name=data['name'], sponsor_id=sponsor.id).first()
+
         if float(data.get('budget')) > sponsor_budget:
             return jsonify({'message': 'Insufficient Budget'}), 400
-        else:
-            if temp:
-                filename = secure_filename(temp.filename)
-                if "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_formats:
-                    unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
-                    campaign_fin = os.path.join(app.config['UPLOAD_FOLDER_PPIC'], unique_filename)
-                    os.makedirs(app.config['UPLOAD_FOLDER_PPIC'], exist_ok=True)
-                    temp.save(campaign_fin)
+
+        if temp:
+            filename = secure_filename(temp.filename)
+            if "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_formats:
+                unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
+                campaign_fin = os.path.join(app.config['UPLOAD_FOLDER_PPIC'], unique_filename)
+                os.makedirs(app.config['UPLOAD_FOLDER_PPIC'], exist_ok=True)
+                temp.save(campaign_fin)
+
+                if existing_campaign:
+                    # Update existing campaign
+                    existing_campaign.description = data['description']
+                    existing_campaign.budget = data['budget']
+                    existing_campaign.visibility = data['visibility']
+                    existing_campaign.goals = data['goals']
+                    existing_campaign.niche = data['niche']
+                    existing_campaign.end_date = datetime.now() + timedelta(days=int(data['duration']))
+                    existing_campaign.campaign_pic = campaign_fin
+
+                    db.session.commit()
+                    cache.delete(f"campaigns_{request.view_args['username']}")
+                    cache.delete('all_campaigns')
+                    cache.delete(f"stats_{request.view_args['username']}")
+                    return jsonify({'message': 'Campaign Updated Successfully', 'campaign': existing_campaign.name}), 200
+                else:
+                    # Create a new campaign
                     new_campaign = Campaign(
                         name=data['name'],
                         description=data['description'],
@@ -246,10 +278,25 @@ def add_campaign(username):
                     cache.delete(f"campaigns_{request.view_args['username']}")
                     cache.delete('all_campaigns')
                     cache.delete(f"stats_{request.view_args['username']}")
-                    return jsonify({'message': 'Successfull',"campaign":new_campaign.name}), 201
-                else:
-                    return jsonify({'message': 'Invalid file format. Please use PNG, TIFF, JPG, or JPEG.'}), 400
+                    return jsonify({'message': 'Campaign Added Successfully', 'campaign': new_campaign.name}), 201
             else:
+                return jsonify({'message': 'Invalid file format. Please use PNG, TIFF, JPG, or JPEG.'}), 400
+        else:
+            if existing_campaign:
+                existing_campaign.description = data['description']
+                existing_campaign.budget = data['budget']
+                existing_campaign.visibility = data['visibility']
+                existing_campaign.goals = data['goals']
+                existing_campaign.niche = data['niche']
+                existing_campaign.end_date = datetime.now() + timedelta(days=int(data['duration']))
+
+                db.session.commit()
+                cache.delete(f"campaigns_{request.view_args['username']}")
+                cache.delete('all_campaigns')
+                cache.delete(f"stats_{request.view_args['username']}")
+                return jsonify({'message': 'Campaign Updated Successfully', 'campaign': existing_campaign.name}), 200
+            else:
+                # Create a new campaign without an image
                 new_campaign = Campaign(
                     name=data['name'],
                     description=data['description'],
@@ -266,11 +313,24 @@ def add_campaign(username):
                 cache.delete(f"campaigns_{request.view_args['username']}")
                 cache.delete('all_campaigns')
                 cache.delete(f"stats_{request.view_args['username']}")
-                return jsonify({'message': 'Successfull',"campaign":new_campaign.name}), 201
+                return jsonify({'message': 'Campaign Added Successfully', 'campaign': new_campaign.name}), 201
     else:
         return jsonify({'message': 'Unauthorized role'}), 403
 
+    
+@admin_required
+@jwt_required()
+@app.route('/unapproved_sponsors', methods=['GET'])
+def get_unapproved_sponsors():
+
+    unapproved_sponsors = User.query.join(Sponsor).options(joinedload(User.sponsor)).filter(User.role == 'sponsor', Sponsor.is_approved ==  False).all()
+    
+    response = [sponsor.to_dict() for sponsor in unapproved_sponsors]
+    
+    return jsonify(response), 200
+
 @auth_required
+@jwt_required()
 @app.route("/campaigns/<string:username>", methods=['GET'])
 @cache.cached(timeout=300, key_prefix=lambda: f"campaigns_{request.view_args['username']}")
 
@@ -297,16 +357,19 @@ def get_campaigns(username):
         else:
             campaigns = Campaign.query.all()
             influencer = Influencer.query.all()
-            sponsor = User.query.filter_by(role='sponsor').all()
-            return jsonify({'campaigns':[campaign.to_dic() for campaign in campaigns],'influencers':[influ.to_dic() for influ in influencer],'sponsors':[spons.to_dict() for spons in sponsor]}), 200
+            sponsor = db.session.query(User, Sponsor).join(Sponsor, User.id == Sponsor.user_id).all()
+            sponsors_data = [
+                {**user.to_dict(), **sponsor.to_dic()} for user, sponsor in sponsor
+            ]
+            return jsonify({'campaigns':[campaign.to_dic() for campaign in campaigns],'influencers':[influ.to_dic() for influ in influencer],'sponsors':sponsors_data}), 200
     else:
         return jsonify({'message': 'User not found'}), 404
 
 
 @auth_required
+@jwt_required()
 @app.route("/campaign/<string:username>/<string:name>", methods=['GET'])
-@cache.cached(timeout=300, key_prefix=lambda: f"campaigns_{request.view_args['username']}_{name}")
-
+@cache.cached(timeout=300, key_prefix=lambda: f"campaigns_{request.view_args['username']}_{request.view_args['name']}")
 def get_campaign(username,name):
     user = User.query.filter_by(username=username).first()
     if user.role == 'sponsor':
@@ -318,6 +381,7 @@ def get_campaign(username,name):
         return jsonify({'message': 'Unauthorized role'}), 403
 
 @auth_required
+@jwt_required()
 @app.route("/add_adrequest/<string:username>/<int:campaign_id>", methods=['POST'])
 def add_adrequest(username, campaign_id):
     print(username,campaign_id)
@@ -369,6 +433,7 @@ def add_adrequest(username, campaign_id):
     return jsonify({'message': 'Ad request submitted successfully'}), 201
 
 @auth_required
+@jwt_required()
 @app.route("/stats/<string:username>", methods=['GET'])
 @cache.cached(timeout=300, key_prefix=lambda: f"stats_{request.view_args['username']}")
 def get_stats(username):
@@ -427,6 +492,7 @@ def get_stats(username):
         return jsonify({"message":"Sorry the user does not exist"}),404
 
 @auth_required
+@jwt_required()
 @app.route("/submit_request/<string:type>/<int:id>", methods=['POST'])
 def submit_request(type, id):
     try:
@@ -491,6 +557,7 @@ def submit_request(type, id):
         return jsonify({'message': 'Failed to submit request'}), 500
 
 @auth_required
+@jwt_required()
 @app.route("/adrequests/<string:username>", methods=['GET'])
 @cache.cached(timeout=300,key_prefix=lambda: f"adrequests_{request.view_args['username']}")
 def get_adrequests(username):
@@ -527,6 +594,7 @@ def get_adrequests(username):
         return jsonify({'message': 'Unauthorized role'}), 403
 
 @auth_required
+@jwt_required()
 @app.route('/process_request/<int:id>', methods=['POST'])
 def process_ad_requests(id):
     ad_request = Adrequest.query.get(id)
@@ -564,6 +632,7 @@ def process_ad_requests(id):
     return jsonify({'message': f'Request has been {ad_request.status}'}), 200
 
 @admin_required
+@jwt_required()
 @app.route('/getcampaings',methods=["GET"])
 @cache.cached(timeout=300, key_prefix="active_campaigns")
 def get_all_campaigns():
@@ -575,6 +644,7 @@ def get_all_campaigns():
     return jsonify([cam.to_dic() for cam in campaigns]),200
 
 @admin_required
+@jwt_required()
 @app.route('/flaguser/<string:username>',methods=['POST'])
 def flag_user(username):
     user = User.query.filter_by(username=username).first()
@@ -589,6 +659,7 @@ def flag_user(username):
     return jsonify({"message":"The user has been flagged successfully"}), 200
 
 @admin_required
+@jwt_required()
 @app.route('/unflaguser/<string:username>',methods=['POST'])
 def unflag_user(username):
     user = User.query.filter_by(username=username).first()
@@ -602,6 +673,7 @@ def unflag_user(username):
     return jsonify({"message":"The user has been unflagged successfully"}), 200
 
 @admin_required
+@jwt_required()
 @app.route('/remove_user/<string:username>',methods=['POST'])
 def remove_user(username):
     user=User.query.filter_by(username=username).first()
@@ -614,34 +686,149 @@ def remove_user(username):
     return jsonify({"message":"The user has been removed successfully"}),200
 
 @admin_required
+@jwt_required()
 @app.route('/flagged_data',methods = ['GET'])
 @cache.cached(timeout=300, key_prefix='flagged_data')
 def get_flaggerData():
     users = User.query.filter(User.role != 'admin').all()
     campaigns = Campaign.query.filter(Campaign.flagged == True).all()
 
+    flagged_users = [user for user in users if user.flagged]
+    flagged_campaigns = [campaign for campaign in campaigns if campaign.flagged]
+
     return jsonify({
-        "users":[user.to_dict() for user in users],
-        "campaigns":[campaign.to_dic() for campaign in campaigns]
+        "users":[user.to_dict() for user in flagged_users],
+        "campaigns":[campaign.to_dic() for campaign in flagged_campaigns]
     }),200
 
 @celery.task
-def export_campaings_to_csv(sponsor_id):
-    sponsor = Sponsor.query.get(sponsor_id)
-    campaigns = Campaign.query.filter_by(sponsor_id=sponsor_id).all()
-    csv_file=f"{sponsor.company_name}_campaigns.csv"
-    with open(csv_file,'w') as file:
-        writer = csv.writer(file)
-        writer.writerow(['Name','Description','Budget','Start Date','End Date'])
-        for cam in campaigns:
-            writer.writerow([cam.name,cam.description,cam.budget,cam.start_date,cam.end_date])
-    print(f"CSV export completed for {sponsor.company_name}")
+def export_campaigns_to_csv(sponsor_id, campaign_id):
+    with app.app_context():
+        sponsor = Sponsor.query.get(sponsor_id)
+        if sponsor:
+            campaign = Campaign.query.get(campaign_id)
+            if campaign and campaign.sponsor_id == sponsor.id:
 
-@app.route('/export_campaign',methods=['POST'])
+                csv_file = os.path.join("static", "stats", f"{sponsor.company_name}_{campaign.name}.csv")
+                os.makedirs(os.path.dirname(csv_file), exist_ok=True)
+                
+                with open(csv_file, 'w', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(['Name', 'Description', 'Budget', 'Start Date', 'End Date', 'Visibility', 'Goals'])
+                    writer.writerow([
+                        campaign.name,
+                        campaign.description,
+                        campaign.budget,
+                        campaign.start_date,
+                        campaign.end_date,
+                        campaign.visibility,
+                        campaign.goals
+                    ])
+                print(f"CSV export completed for {sponsor.company_name}")
+
+                send_export_completion_email(sponsor.user.email, campaign.name)
+            else:
+                print("Campaign not found or unauthorized access")
+        else:
+            print("Sponsor not found")
+
 @auth_required
-def export_campaigns():
-    user=User.query.get(session['user_id'])
+@app.route('/download_campaign:<int:campaginid>',methods=['GET'])
+def export_campaign(campaign_id):
+    user = User.query.get(session['user_id'])
     if user.role != 'sponsor':
-        return jsonify({"message":"Unauthorized"}),403
-    export_campaings_to_csv.delay(user.id)
-    return jsonify({'message':'Export initiated successfully'}),200
+        return jsonify({"message": "Unauthorized"}), 403
+
+    sponsor = Sponsor.query.filter_by(user_id=user.id).first()
+    if not sponsor:
+        return jsonify({"message": "Sponsor not found"}), 404
+
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign or campaign.sponsor_id != sponsor.id:
+        return jsonify({"message": "Campaign not found or unauthorized access"}), 404
+
+    export_campaigns_to_csv.delay(sponsor.id, campaign_id)
+    return jsonify({'message': 'Export initiated successfully'}), 200
+
+def send_export_completion_email(to_email, campaign_name):
+    subject = "Your Campaign Export is Ready"
+    body = f"""
+    <p>Dear Sponsor,</p>
+    <p>The export for your campaign <strong>{campaign_name}</strong> is now ready.</p>
+    <p>Please log in to your account to download the CSV file.</p>
+    <p>Best regards,<br>Your Team</p>
+    """
+    is_html = True
+
+    api_key = app.config['EMAIL_API_KEY']
+    api_url = app.config['EMAIL_API_URL']
+    api_mail = str(app.config['EMAIL_API_MAIL'])
+
+    data = {
+        "apikey": api_key,
+        "from": api_mail,
+        "subject": subject,
+        "recipients": [{"email": to_email}],
+    }
+    if is_html:
+        data["html"] = body
+    else:
+        data["message"] = body
+
+    response = requests.post(api_url, json=data)
+    if response.status_code == 200:
+        print(f"Email sent to {to_email}")
+    else:
+        print(f"Failed to send email to {to_email}: {response.text}")
+
+
+@celery.task
+def send_daily_reminders():
+    influencer_with_pending_requests = Influencer.query.filter(Influencer.ad_requests.any(Adrequest.status=="pending")).all()
+    for inf in influencer_with_pending_requests:
+        api_key = app.config['EMAIL_API_KEY']
+        api_url = app.config['EMAIL_API_URL']
+        api_mail=str(app.config['EMAIL_API_MAIL'])
+        data = {
+        "apikey": api_key,
+        "from": api_mail,
+        "subject": subject,
+        "recipients": [{"email": to_email}]
+    }
+        if is_html:
+            data["html"] = body
+        else:
+            data["message"] = body 
+        response = requests.post(api_url, json=data)
+        if response.status_code == 200:
+            print(f"Email sent to {to_email}")
+        else:
+            print(f"Failed to send email to {to_email}: {response.text}")
+
+    print("Daily reminders sent")
+
+@admin_required
+@jwt_required
+@app.route('/approve_sponsor',methods=['POST'])
+def method_name():
+    id = request.get_json().get('sponsor_id')
+    sponsor = Sponsor.query.filter_by(user_id=id).first()
+    sponsor.is_approved = True
+    db.session.commit()
+    return jsonify({"message":"Sponsor approved successfully"}),200
+
+@auth_required
+@jwt_required
+@app.route('/delete_campaign',methods=['POST'])
+def delete_Campaign():
+    try:
+        id=request.get_json().get('campaign_id')
+        campagin = Campaign.query.filter_by(id=id).first()
+        if not campagin:
+            return jsonify({'error': 'Campaign not found'}), 404
+        print(campagin)
+        db.session.delete(campagin)
+        db.session.commit()
+        return jsonify({'message':'deleted campaign successfully'}), 200
+    except:
+        return jsonify({'error':'unable to delete the campagin'}),403

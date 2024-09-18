@@ -72,6 +72,7 @@ class Sponsor(db.Model):
     industry=db.Column(db.String(100))
     budget=db.Column(db.Float)
     niche = db.Column(db.String(100))
+    is_approved = db.Column(db.Boolean, default=False)
     
     def to_dic(self):
         return {
@@ -111,6 +112,7 @@ class Campaign(db.Model):
             'goals': self.goals,
             'campaign_pic': self.campaign_pic,
             'niche' : self.niche,
+            'flagged':self.flagged,
             'company_name': self.sponsor.company_name if self.sponsor else None 
         }
 

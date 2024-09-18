@@ -1,38 +1,60 @@
 <template>
-  <div class="d-flex p-4">
+  <div class="d-flex p-4 campaign-cards">
     <BCard
       v-for="campaign in campaigns"
-      :title="campaign.name"
       :key="campaign.id"
-      :img-src="base + '/' + campaign.campaign_pic"
-      img-alt="Image"
-      img-top
-      tag="article"
-      style="max-width: 15rem; max-height: 28rem"
-      class="d-flex flex-column"
+      class="custom-card p-0"
     >
-      <BCardText
-        class="m-0"
-        style="height: 30%; font-size: 10px; overflow: hidden"
-      >
-        {{ campaign.description }}
-      </BCardText>
-
-      <BButton
-        variant="primary"
-        :to="{ name: `OneCampaign`, params: { username: campaign.name } }"
-        class="mt-auto m-0 align-self-center"
-      >
-        Go to Campaign
-      </BButton>
+      <div class="card-image-wrapper">
+        <img
+          :src="
+            campaign.campaign_pic
+              ? base + '/' + campaign.campaign_pic
+              : base + '/static/call-out-2702440_640.png'
+          "
+          alt="Image"
+          class="card-image"
+        />
+      </div>
+      <div class="card-details-overlay">
+        <div class="details-content">
+          <h4 class="card-title">{{ campaign.name }}</h4>
+          <p class="card-description">{{ campaign.description }}</p>
+          <p class="card-budget">Budget: {{ campaign.budget }}</p>
+          <div class="card-buttons">
+            <BButton
+              variant="danger"
+              class="btn-delete"
+              @click="deleteCampaign(campaign.id)"
+            >
+              Delete
+            </BButton>
+            <BButton
+              variant="warning"
+              @click="openModal(campaign)"
+              class="btn-edit"
+            >
+              Edit
+            </BButton>
+          </div>
+          <div class="card-footer">
+            <BButton
+              variant="primary"
+              :to="{ name: `OneCampaign`, params: { username: campaign.name } }"
+              class="btn-view"
+            >
+              Go to Campaign
+            </BButton>
+          </div>
+        </div>
+      </div>
     </BCard>
-
     <BModal
-      id="modal-center"
+      id="campaign-modal"
       v-model="modal"
       hide-footer
       centered
-      title="Add Campaign"
+      title="Edit Campaign"
     >
       <BContainer fluid>
         <BRow>
@@ -174,12 +196,13 @@
       </BContainer>
       <div class="w-100 d-flex justify-content-center">
         <b-button type="submit" @click="submitForm" variant="success"
-          >Add Campaign</b-button
+          >Save Changes</b-button
         >
       </div>
     </BModal>
 
-    <b-button variant="primary" class="fab" @click="openModal"> + </b-button>
+    <!-- Floating Button for Adding a New Campaign -->
+    <BButton variant="primary" class="fab" @click="openModal()"> + </BButton>
   </div>
 </template>
 
@@ -212,8 +235,30 @@ export default {
       "Select your niche",
     ]);
     const campaigns = ref([]);
+    const editingCampaignId = ref(null); // Track the campaign being edited
 
-    const openModal = () => {
+    const openModal = (campaign = null) => {
+      if (campaign) {
+        const start =
+          campaign.start_date &&
+          campaign.start_date.split(", ")[1].split(" ")[0];
+        const end =
+          campaign.end_date && campaign.end_date.split(", ")[1].split(" ")[0];
+        editingCampaignId.value = campaign.id;
+        campaignName.value = campaign.name;
+        campaignDesc.value = campaign.description;
+        campaignBudget.value = campaign.budget;
+        campaignDuration.value = end - start;
+        campaignNiche.value = campaign.niche.split(",");
+        campaignGoals.value = campaign.goals;
+        campaignVisibility.value = campaign.visibility;
+        uploadText.value = campaign.campaign_pic
+          ? "Change Image"
+          : "Choose an image...";
+      } else {
+        // Add mode - reset the form
+        resetForm();
+      }
       modal.value = true;
     };
 
@@ -243,8 +288,10 @@ export default {
         uploadText.value = file.name;
       }
     };
+
     const { proxy } = getCurrentInstance();
 
+    // Submit form data for adding or editing a campaign
     const submitForm = async () => {
       const formData = new FormData();
       formData.append("name", campaignName.value);
@@ -254,31 +301,37 @@ export default {
       formData.append("niche", campaignNiche.value);
       formData.append("goals", campaignGoals.value);
       formData.append("visibility", campaignVisibility.value);
-      if (campaignImg) {
+      if (campaignImg.value) {
         formData.append("campaign_img", campaignImg.value);
       }
 
       try {
-        const response = await axios.post(
-          `http://localhost:5000/add_campaign/${localStorage.getItem(
-            "username"
-          )}`,
-          formData,
-          {
-            headers: {
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-        console.log("Campaign added successfully", response.data);
-        if (response.data.message.toLowerCase().includes("success")) {
+        // Determine whether to edit or create
+        let apiUrl = `http://localhost:5000/add_campaign/${localStorage.getItem(
+          "username"
+        )}`;
+        let method = "post"; // POST for both add and edit in this implementation
+
+        const response = await axios({
+          method: method,
+          url: apiUrl,
+          data: formData,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        console.log(response.data.message);
+        if (response.status === 200 || response.status === 201) {
           resetForm();
           modal.value = false;
+          // Update campaigns list after adding or editing
+          await loadCampaigns();
         } else {
-          console.log("Campaign not added");
+          console.log("Campaign not added/updated");
         }
       } catch (error) {
-        console.log("Error adding campaign:", error);
+        console.log("Error adding/updating campaign:", error);
       }
     };
 
@@ -290,18 +343,26 @@ export default {
       campaignNiche.value = [];
       campaignGoals.value = "";
       campaignVisibility.value = "public";
+      campaignImg.value = null;
+      editingCampaignId.value = null; // Reset the editing ID
+      uploadText.value = "Choose an image...";
+    };
+
+    const deleteCampaign = (id) => {
+      const res = axios.post("http://localhost:5000/delete_campaign", {
+        campaign_id: id,
+      });
+    };
+
+    const loadCampaigns = async () => {
+      const response = await axios.get(
+        `http://localhost:5000/campaigns/${localStorage.getItem("username")}`
+      );
+      campaigns.value = response.data.campaigns;
     };
 
     onMounted(async () => {
-      const role = localStorage.getItem("role");
-      if (!role) {
-        router.push({ name: "Login" });
-      }
-      const responce = await axios.get(
-        `http://localhost:5000/campaigns/${localStorage.getItem("username")}`
-      );
-      campaigns.value = responce.data.campaigns;
-      console.log(campaigns);
+      await loadCampaigns();
     });
 
     return {
@@ -326,6 +387,7 @@ export default {
       submitForm,
       campaigns,
       base,
+      deleteCampaign,
     };
   },
 };
@@ -352,6 +414,86 @@ export default {
   background-color: #0056b3;
 }
 
+.custom-card {
+  max-width: 20rem; /* Increase width */
+  max-height: 35rem; /* Increase height */
+  display: flex;
+  flex-direction: column;
+  margin: 1rem;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.custom-card:hover {
+  transform: scale(1.05);
+}
+
+.card-image-wrapper {
+  overflow: hidden;
+}
+
+.card-image {
+  width: 100%;
+  height: 250px; /* Adjusted height for larger image */
+  object-fit: cover;
+}
+
+.card-details-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 1rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.custom-card:hover .card-details-overlay {
+  opacity: 1;
+  visibility: visible;
+}
+
+.details-content {
+  text-align: center;
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.card-description {
+  margin: 1rem 0;
+  font-size: 1rem;
+}
+
+.card-budget {
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.card-buttons,
+.card-footer {
+  display: flex;
+  justify-content: space-around;
+  padding: 0.5rem;
+}
+
+.btn-delete,
+.btn-edit,
+.btn-view {
+  flex: 1;
+  margin: 0.2rem;
+}
 .image-uploader {
   position: relative;
   overflow: hidden;
