@@ -24,11 +24,12 @@ class User(db.Model):
     role = db.Column(db.String(20), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     flagged = db.Column(db.Boolean, default=False)
-    profile_pic = db.Column(db.String(100),nullable=True)
+    profile_pic = db.Column(db.String(100), nullable=True)
     flag_reason = db.Column(db.String(255), nullable=True)  
 
-    sponsor = db.relationship('Sponsor', back_populates='user', uselist=False)
-    influencer = db.relationship('Influencer', back_populates='user', uselist=False)
+    # Establish relationships without back_populates for simplicity
+    sponsor = db.relationship('Sponsor', backref='user', uselist=False, cascade='all, delete-orphan')
+    influencer = db.relationship('Influencer', backref='user', uselist=False, cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -41,6 +42,7 @@ class User(db.Model):
             'flag_reason': self.flag_reason,
             'profile_pic': self.profile_pic
         }
+
 
 class Adrequest(db.Model):
     id=db.Column(db.Integer,primary_key=True)
@@ -67,26 +69,25 @@ class Adrequest(db.Model):
     influencer = db.relationship('Influencer', back_populates='ad_requests') 
 
 class Sponsor(db.Model):
-    id=db.Column(db.Integer,primary_key=True)
-    company_name=db.Column(db.String(100))
-    industry=db.Column(db.String(100))
-    budget=db.Column(db.Float)
+    id = db.Column(db.Integer, primary_key=True)
+    company_name = db.Column(db.String(100))
+    industry = db.Column(db.String(100))
+    budget = db.Column(db.Float)
     niche = db.Column(db.String(100))
     is_approved = db.Column(db.Boolean, default=False)
     
-    def to_dic(self):
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    campaigns = db.relationship('Campaign', back_populates='sponsor')
+
+    def to_dict(self):
         return {
-            "id":self.id,
-            "company_name":self.company_name,
-            "industry":self.industry,
-            "budget":self.budget,
-            "niche":self.niche,
+            "id": self.id,
+            "company_name": self.company_name,
+            "industry": self.industry,
+            "budget": self.budget,
+            "niche": self.niche,
         }
-
-    user = db.relationship('User',back_populates='sponsor')
-    campaigns=db.relationship('Campaign',back_populates='sponsor')
-
-    user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False)
 
 class Campaign(db.Model):
     id=db.Column(db.Integer,primary_key=True)
@@ -118,32 +119,31 @@ class Campaign(db.Model):
 
     sponsor_id=db.Column(db.Integer,db.ForeignKey('sponsor.id'),nullable=False)
 
-    ad_requests = db.relationship('Adrequest', back_populates='campaign')
+    ad_requests = db.relationship('Adrequest', back_populates='campaign',cascade='all, delete-orphan')
     sponsor=db.relationship('Sponsor',back_populates='campaigns',lazy='select')
 
     influencers = db.relationship('Influencer',secondary=campaign_influencer, back_populates = 'campaigns')
 
 class Influencer(db.Model):
-    id=db.Column(db.Integer,primary_key=True)
-    name=db.Column(db.String(100))
-    category=db.Column(db.String(100))
-    niche=db.Column(db.String(100))
-    reach=db.Column(db.Float)
-    def to_dic(self):
-        return {
-            "id":self.id,
-            "name":self.name,
-            "category":self.category,
-            "niche":self.niche,
-            "reach":self.reach,
-        }
-    user_id=db.Column(db.Integer,db.ForeignKey('user.id'),nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100))
+    category = db.Column(db.String(100))
+    niche = db.Column(db.String(100))
+    reach = db.Column(db.Float)
+    
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
-    user = db.relationship('User',back_populates='influencer')
     ad_requests = db.relationship('Adrequest', back_populates='influencer')
+    campaigns = db.relationship('Campaign', secondary=campaign_influencer, back_populates='influencers')
 
-    campaigns = db.relationship('Campaign',secondary = campaign_influencer, back_populates='influencers')
-
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "category": self.category,
+            "niche": self.niche,
+            "reach": self.reach,
+        }
 
 with app.app_context():
     db.create_all()

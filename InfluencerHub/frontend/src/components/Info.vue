@@ -4,6 +4,7 @@
   >
     <h3>Welcome Admin!</h3>
 
+    <!-- Ongoing Campaigns Card -->
     <BCard
       v-if="activecampaigns.length > 0"
       header="Ongoing Campaigns:"
@@ -22,13 +23,24 @@
             >
           </div>
           <div class="d-flex justify-content-end gap-2">
-            <BButton variant="success" size="sm">View</BButton>
-            <BButton variant="danger" size="sm">Remove</BButton>
+            <BButton
+              variant="success"
+              size="sm"
+              @click="viewCampaign(campaign.id)"
+              >View</BButton
+            >
+            <BButton
+              variant="danger"
+              size="sm"
+              @click="deleteCampaign(campaign.id)"
+              >Delete</BButton
+            >
           </div>
         </BListGroupItem>
       </BListGroup>
     </BCard>
 
+    <!-- Flagged Users/Campaigns Card -->
     <BCard
       v-if="
         campaignUsers.campaigns?.length > 0 || campaignUsers.users?.length > 0
@@ -47,8 +59,15 @@
             <small class="text-muted"> | {{ item.company_user }}</small>
           </div>
           <div class="d-flex justify-content-end gap-2">
-            <BButton variant="success" size="sm">View</BButton>
-            <BButton variant="danger" size="sm">Remove</BButton>
+            <BButton
+              variant="success"
+              :to="{ name: 'OneProfile', params: { username: item.username } }"
+              size="sm"
+              >View</BButton
+            >
+            <BButton variant="danger" size="sm" @click="deleteCampaign(item.id)"
+              >Delete</BButton
+            >
           </div>
         </BListGroupItem>
 
@@ -62,13 +81,18 @@
             <small class="text-muted"> | {{ user.role }}</small>
           </div>
           <div class="d-flex justify-content-end gap-2">
-            <BButton variant="success" size="sm">View</BButton>
-            <BButton variant="danger" size="sm">Remove</BButton>
+            <BButton variant="success" size="sm" @click="viewUser(user.id)"
+              >View</BButton
+            >
+            <BButton variant="danger" size="sm" @click="deleteUser(user.id)"
+              >Delete</BButton
+            >
           </div>
         </BListGroupItem>
       </BListGroup>
     </BCard>
 
+    <!-- Unapproved Users Card -->
     <BCard
       v-if="unapprovedUsers.length > 0"
       header="Sponsor Account Approval:"
@@ -109,57 +133,80 @@ export default {
     const activecampaigns = ref([]);
     const campaignUsers = ref({});
     const unapprovedUsers = ref([]);
-    const tempMonth = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    const today = new Date().toLocaleDateString().split("/");
 
     const loadSession = async () => {
       try {
-        const campaignsResponse = await axios.get(
-          "http://localhost:5000/getcampaings"
-        );
         const flaggedResponse = await axios.get(
           "http://localhost:5000/flagged_data"
         );
         const unapprovedResponse = await axios.get(
           "http://localhost:5000/unapproved_sponsors"
         );
+        const campaignsResponse = await axios.get(
+          "http://localhost:5000/getcampaings"
+        );
 
         campaignUsers.value = flaggedResponse.data;
-        console.log(campaignUsers);
         unapprovedUsers.value = unapprovedResponse.data;
 
         activecampaigns.value = campaignsResponse.data
+          .filter((campaign) => campaign.end_date > new Date())
           .map((campaign) => {
-            const endDate = new Date(campaign.end_date);
-            const startDate = new Date(campaign.start_date);
-            const progressMade = calculateProgress(startDate, endDate, today);
-
-            return progressMade >= 0 ? { ...campaign, progressMade } : null;
-          })
-          .filter((campaign) => campaign !== null);
+            const progressMade = calculateProgress(
+              new Date(campaign.start_date),
+              new Date(campaign.end_date)
+            );
+            return { ...campaign, progressMade };
+          });
       } catch (err) {
         console.log(err);
       }
     };
 
-    const calculateProgress = (startDate, endDate, currentDate) => {
+    const calculateProgress = (startDate, endDate) => {
       const totalDays = (endDate - startDate) / (1000 * 60 * 60 * 24);
-      const daysPassed =
-        (new Date(currentDate) - startDate) / (1000 * 60 * 60 * 24);
+      const daysPassed = (new Date() - startDate) / (1000 * 60 * 60 * 24);
       return ((daysPassed / totalDays) * 100).toFixed(2);
+    };
+
+    const viewCampaign = (id) => {
+      // Implement campaign viewing logic
+      console.log(`View campaign with ID: ${id}`);
+    };
+
+    const viewUser = (id) => {
+      // Implement user viewing logic
+      console.log(`View user with ID: ${id}`);
+    };
+
+    const deleteCampaign = async (id) => {
+      if (confirm("Are you sure you want to delete this campaign?")) {
+        try {
+          await axios.delete(`http://localhost:5000/delete_campaign`, {
+            data: { campaign_id: id },
+          });
+          loadSession(); // Refresh data
+        } catch (err) {
+          console.log(err);
+        }
+      }
+    };
+
+    const deleteUser = async (id) => {
+      if (confirm("Are you sure you want to delete this user?")) {
+        try {
+          await axios.delete(`http://localhost:5000/remove_user/${id}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          loadSession(); // Refresh data
+        } catch (err) {
+          console.log(localStorage.getItem("token"));
+
+          console.log(err.response?.data || err.message);
+        }
+      }
     };
 
     const approveSponsor = async (id) => {
@@ -167,7 +214,7 @@ export default {
         sponsor_id: id,
       });
       if (res.data.message.includes("success")) {
-        loadSession();
+        loadSession(); // Refresh the data
       }
     };
 
@@ -179,6 +226,10 @@ export default {
       activecampaigns,
       campaignUsers,
       unapprovedUsers,
+      viewCampaign,
+      deleteCampaign,
+      viewUser,
+      deleteUser,
       approveSponsor,
     };
   },

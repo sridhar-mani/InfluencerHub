@@ -25,7 +25,7 @@
             <BButton
               variant="danger"
               class="btn-delete"
-              @click="deleteCampaign(campaign.id)"
+              @click="() => deleteCampaign(campaign.id)"
             >
               Delete
             </BButton>
@@ -347,11 +347,28 @@ export default {
       editingCampaignId.value = null; // Reset the editing ID
       uploadText.value = "Choose an image...";
     };
+    const deleteCampaign = async (id) => {
+      try {
+        console.log(id);
+        const token = localStorage.getItem("token"); // Ensure the token is
+        const res = await axios.post(
+          "http://localhost:5000/delete_campaign",
+          { campaign_id: id },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`, // Add the Authorization header
+            },
+          }
+        );
 
-    const deleteCampaign = (id) => {
-      const res = axios.post("http://localhost:5000/delete_campaign", {
-        campaign_id: id,
-      });
+        if (res.status === 200) {
+          await loadCampaigns(); // Reload campaigns if deletion is successful
+        } else {
+          console.error("Error deleting campaign:", res.data.message);
+        }
+      } catch (error) {
+        console.error("Error deleting campaign:", error);
+      }
     };
 
     const loadCampaigns = async () => {

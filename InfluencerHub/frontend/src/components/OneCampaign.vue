@@ -34,6 +34,7 @@
             <b-button
               @click="openModal"
               variant="success"
+              v-if="userRole === 'sponsor'"
               style="
                 font-size: 30px;
                 width: 70px;
@@ -48,98 +49,89 @@
           </b-col>
         </b-row>
       </b-card-text>
-
-      <b-modal
+      <!-- Modal for Adding or Editing Ad Request -->
+      <BModal
         id="modal-center"
         v-model="modal"
         hide-footer
         centered
-        title="Add Ad Request"
+        title="Add or Edit Ad Request"
       >
-        <b-container fluid>
-          <b-row>
-            <b-form
-              @submit.prevent="submitAdRequest"
-              v-if="userRole === 'sponsor'"
-            >
-              <b-form-group label="Name:" label-for="name">
-                <b-form-input
-                  id="name"
-                  v-model="adRequest.name"
-                  required
-                ></b-form-input>
-              </b-form-group>
-              <b-form-group label="Message:" label-for="message">
-                <b-form-textarea
-                  id="message"
-                  v-model="adRequest.message"
-                  required
-                ></b-form-textarea>
-              </b-form-group>
-              <b-form-group label="Requirements:" label-for="requirements">
-                <b-form-input
-                  id="requirements"
-                  v-model="adRequest.requirements"
-                  required
-                ></b-form-input>
-              </b-form-group>
-              <b-form-group
-                label="Proposed Payment Amount:"
-                label-for="payment-amount"
+        <BForm @submit.prevent="submitAdRequest" v-if="userRole === 'sponsor'">
+          <BFormGroup label="Message:" label-for="message">
+            <BFormTextarea
+              id="message"
+              v-model="adRequest.message"
+              required
+            ></BFormTextarea>
+          </BFormGroup>
+          <BFormGroup label="Requirements:" label-for="requirements">
+            <BFormInput
+              id="requirements"
+              v-model="adRequest.requirements"
+              required
+            ></BFormInput>
+          </BFormGroup>
+          <BFormGroup
+            label="Proposed Payment Amount:"
+            label-for="payment-amount"
+          >
+            <BFormInput
+              id="payment-amount"
+              v-model.number="adRequest.payment_amount"
+              type="number"
+              required
+            ></BFormInput>
+          </BFormGroup>
+          <BFormGroup label="Influencers:" label-for="influencers">
+            <BInputGroup>
+              <BFormInput
+                id="influencers"
+                v-model="influencerQuery"
+                @input="fetchSuggestions"
+                @focus="fetchSuggestions"
+                autocomplete="off"
+              ></BFormInput>
+              <BButton @click="fetchSuggestions" variant="primary"
+                >Find</BButton
               >
-                <b-form-input
-                  id="payment-amount"
-                  v-model.number="adRequest.payment_amount"
-                  type="number"
-                  required
-                ></b-form-input>
-              </b-form-group>
-              <b-form-group label="Influencers:" label-for="influencers">
-                <b-input-group>
-                  <b-form-input
-                    id="influencers"
-                    v-model="influencerQuery"
-                    @input="fetchSuggestions"
-                    @focus="fetchSuggestions"
-                    autocomplete="off"
-                  ></b-form-input>
+            </BInputGroup>
+          </BFormGroup>
 
-                  <b-input-group-append>
-                    <b-button @click="fetchSuggestions" variant="primary"
-                      >Find</b-button
-                    >
-                  </b-input-group-append>
-                </b-input-group>
-              </b-form-group>
+          <div v-if="showSuggestions" class="mt-2">
+            <div v-for="s in suggestions" :key="s">
+              <label>
+                <input
+                  type="checkbox"
+                  :value="s"
+                  @change="handleCheckboxChange"
+                  v-model="selectedSuggestion"
+                />
+                {{ s }}
+              </label>
+            </div>
+          </div>
 
-              <div v-if="showSuggestions" class="mt-2">
-                <div v-for="s in suggestions" :key="s">
-                  <label>
-                    <input
-                      type="checkbox"
-                      :value="s"
-                      :on-change="handleCheckboxChange"
-                      v-model="selectedSuggestion"
-                    />
-                    {{ s }}
-                  </label>
-                </div>
-              </div>
-              <div class="w-100 d-flex justify-content-center">
-                <b-button type="submit" variant="success"
-                  >Submit Ad Request</b-button
-                >
-              </div>
-            </b-form>
-          </b-row>
-        </b-container>
-      </b-modal>
+          <div class="w-100 d-flex justify-content-center mt-3">
+            <div class="w-100 d-flex justify-content-center mt-3">
+              <BButton
+                type="submit"
+                variant="success"
+                :disabled="selectedSuggestion.length === 0"
+              >
+                Submit Ad Request
+              </BButton>
+            </div>
+          </div>
+        </BForm>
+      </BModal>
     </b-card>
     <div class="w-100 d-flex justify-content-between">
-      <b-button variant="primary" :to="{ name: 'Campaign' }"
-        >Back to Campaign List</b-button
-      >
-      <b-button variant="success" @click="() => handleDldstats(campaign.id)"
+      <b-button variant="primary" @click="goBack">Go Back</b-button>
+      <b-button
+        variant="success"
+        v-if="userRole === 'sponsor'"
+        @click="() => handleDldstats(campaign.id)"
         >Download Campaign Statistics</b-button
       >
     </div>
@@ -151,6 +143,7 @@ import { ref, onMounted } from "vue";
 import axios from "axios";
 import { useRoute } from "vue-router";
 import { BContainer, BRow, BToast } from "bootstrap-vue-next";
+import router from "../routes";
 
 export default {
   name: "OneCampaign",
@@ -178,6 +171,10 @@ export default {
       modal.value = !modal.value;
     };
 
+    const goBack = () => {
+      router.go(-1);
+    };
+
     const handleCheckboxChange = (event) => {
       const value = event.target.value;
       const checked = event.target.checked;
@@ -198,11 +195,10 @@ export default {
 
     const loadCampaign = async () => {
       try {
-        const name = localStorage.getItem("username");
+        const username = route.params.username;
+        const campaignName = route.params.name;
         const response = await axios.get(
-          `http://localhost:5000/campaign/${localStorage.getItem("username")}/${
-            route.params.username
-          }`
+          `http://localhost:5000/campaign/${username}/${campaignName}`
         );
         campaign.value = response.data[0];
         console.log(campaign);
@@ -215,17 +211,29 @@ export default {
     };
 
     const submitAdRequest = async () => {
+      if (selectedSuggestion.value.length === 0) {
+        alert("Please select at least one influencer.");
+        return;
+      }
       try {
         adRequest.value.influencers = selectedSuggestion.value;
-        const response = await axios.post(
-          `http://localhost:5000/add_adrequest/${localStorage.getItem(
-            "username"
-          )}/${campaign.value.id}`,
-          adRequest.value
-        );
+        const method = adRequest.value.id ? "put" : "post";
+        const url = adRequest.value.id
+          ? `http://localhost:5000/add_adrequest/${localStorage.getItem(
+              "username"
+            )}/${campaign.value.id}/${adRequest.value.id}`
+          : `http://localhost:5000/add_adrequest/${localStorage.getItem(
+              "username"
+            )}/${campaign.value.id}`;
+
+        const response = await axios({
+          method,
+          url,
+          data: adRequest.value,
+        });
+
         console.log(response);
         adRequest.value = {
-          name: "",
           message: "",
           requirements: "",
           payment_amount: 0,
@@ -247,14 +255,14 @@ export default {
           const response = await axios.get(
             `http://localhost:5000/users/get_influencers`,
             {
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("token")}`, // Include the token
+              },
               params: { query },
             }
           );
-          console.log("API response:", response.data);
           suggestions.value = response.data;
-          console.log("Suggestions:", suggestions.value, showSuggestions.value);
           showSuggestions.value = true;
-          console.log(selectedSuggestion.value);
         } catch (error) {
           console.error("Error fetching suggestions:", error);
         }
@@ -282,6 +290,7 @@ export default {
       submitAdRequest,
       handleDldstats,
       fetchSuggestions,
+      goBack,
     };
   },
 };

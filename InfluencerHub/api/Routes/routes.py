@@ -672,18 +672,23 @@ def unflag_user(username):
     db.session.commit()
     return jsonify({"message":"The user has been unflagged successfully"}), 200
 
-@admin_required
+@app.route("/remove_user/<int:id>", methods=['DELETE'])
 @jwt_required()
-@app.route('/remove_user/<string:username>',methods=['POST'])
-def remove_user(username):
-    user=User.query.filter_by(username=username).first()
+def remove_user(id):
+    user = User.query.get(id)
+    
     if not user:
-        return jsonify({"message":"User not found"}), 404
-    db.session.delete(user)
-    db.session.commit()
-    cache.delete(f"stats_{request.view_args['username']}")
+        return jsonify({'message': 'User not found'}), 404
+    
+    try:
+        db.session.delete(user)  # This will cascade delete the related Sponsor and Influencer due to cascade='all, delete-orphan'
+        db.session.commit()
 
-    return jsonify({"message":"The user has been removed successfully"}),200
+        return jsonify({'message': 'User and associated data deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
 
 @admin_required
 @jwt_required()

@@ -98,7 +98,7 @@ export default {
         if (response.data) {
           localStorage.setItem("username", response.data.user.username);
           localStorage.setItem("role", response.data.user.role);
-          localStorage.setItem("token", response.data.token);
+          localStorage.setItem("token", response.data.access_token);
           router.push({ name: "Find" });
         }
       } catch (err) {

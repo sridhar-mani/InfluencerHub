@@ -55,16 +55,19 @@
             </div>
             <div class="profile-info d-flex align-items-start">
               <BCardText
-                class="profile-rating w-100 d-flex justify-content-between align-items-center"
-                ><p>Rating:</p>
-                <p style="font-size: 13px">{{ displayStars }}</p></BCardText
-              >
-
-              <BCardText
                 class="profile-earnings d-flex justify-content-between align-items-center gap-2"
               >
                 <p class="fw-bold text-start w-auto">Earnings (This Month):</p>
-                <p>$500</p>
+                <p>₹{{ user.earnings }}</p>
+                <!-- Display earnings from DB -->
+              </BCardText>
+
+              <BCardText
+                class="profile-reach d-flex justify-content-between align-items-center gap-2"
+              >
+                <p class="fw-bold text-start w-auto">Reach:</p>
+                <p>{{ user.reach }}</p>
+                <!-- Display reach from DB -->
               </BCardText>
             </div>
           </BCard>

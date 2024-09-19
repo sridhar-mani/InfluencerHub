@@ -58,7 +58,7 @@ const routes = [
         component: Campaign,
       },
       {
-        path: "campaigns/:username?",
+        path: "campaigns/:username?/:name?",
         name: "OneCampaign",
         component: OneCampaign,
         props: true,

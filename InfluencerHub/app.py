@@ -7,7 +7,7 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from flask_mail import Mail
 
 app =Flask(__name__)
-CORS(app)
+CORS(app, supports_credentials=True)
 
 import config
 
@@ -20,7 +20,7 @@ from api.Routes import routes
 
 try:
     r = redis.Redis(
-    host='redis-10812.c322.us-east-1-2.ec2.redns.redis-cloud.com', 
+    host='redis-10812.c322.us-east-1-2.ec2.redns.redis-cloud.com',
     port= 10812,
     password='hqNoRpztHCBnh46RrKz4QL4CS9xkuScn',
 )
