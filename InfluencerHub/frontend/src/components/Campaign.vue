@@ -40,7 +40,10 @@
           <div class="card-footer">
             <BButton
               variant="primary"
-              :to="{ name: `OneCampaign`, params: { username: campaign.name } }"
+              :to="{
+                name: `OneCampaign`,
+                params: { username: campaign.name, name: username },
+              }"
               class="btn-view"
             >
               Go to Campaign
@@ -235,8 +238,8 @@ export default {
       "Select your niche",
     ]);
     const campaigns = ref([]);
-    const editingCampaignId = ref(null); // Track the campaign being edited
-
+    const editingCampaignId = ref(null);
+    const username = ref("");
     const openModal = (campaign = null) => {
       if (campaign) {
         const start =
@@ -288,8 +291,6 @@ export default {
         uploadText.value = file.name;
       }
     };
-
-    const { proxy } = getCurrentInstance();
 
     // Submit form data for adding or editing a campaign
     const submitForm = async () => {
@@ -376,6 +377,7 @@ export default {
         `http://localhost:5000/campaigns/${localStorage.getItem("username")}`
       );
       campaigns.value = response.data.campaigns;
+      username.value = localStorage.getItem("username");
     };
 
     onMounted(async () => {
@@ -405,6 +407,7 @@ export default {
       campaigns,
       base,
       deleteCampaign,
+      username,
     };
   },
 };

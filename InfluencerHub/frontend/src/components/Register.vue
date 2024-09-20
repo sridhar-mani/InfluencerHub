@@ -55,7 +55,7 @@
             v-model="password"
             id="floatingPassword"
             type="password"
-            autocomplete="new-password"
+            autocomplete
             placeholder="Password"
             required
           />

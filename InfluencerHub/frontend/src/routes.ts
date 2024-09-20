@@ -64,7 +64,7 @@ const routes = [
         props: true,
       },
       {
-        path: "profile/:username?",
+        path: "profile_view/:username?",
         name: "OneProfile",
         component: OneProfile,
         props: true,

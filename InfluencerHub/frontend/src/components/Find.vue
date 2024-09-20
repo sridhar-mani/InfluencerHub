@@ -86,7 +86,7 @@
               variant="outline-primary"
               :to="{
                 name: 'OneCampaign',
-                params: { username: c.sponsor_username, name: c.name },
+                params: { username: c.name, name: usersname },
               }"
               class="me-2"
             >
@@ -147,14 +147,14 @@
             >
               Flag
             </b-button>
-            <b-button
+            <BButton
               pill
               variant="outline-success"
               v-if="role === 'sponsor'"
-              @click="handleRequest(i, 'influencer')"
+              @click="openModal(i)"
             >
               Request
-            </b-button>
+            </BButton>
           </div>
         </div>
       </div>
@@ -178,6 +178,47 @@
         ></b-form-textarea>
       </div>
     </b-modal>
+    <b-modal
+      id="modal-center"
+      v-model="modal"
+      hide-footer
+      centered
+      title="Add or Edit Ad Request"
+    >
+      <b-form @submit.prevent="submitAdRequest" v-if="role === 'sponsor'">
+        <b-form-group label="Message:" label-for="message">
+          <b-form-textarea
+            id="message"
+            v-model="adRequest.message"
+            required
+          ></b-form-textarea>
+        </b-form-group>
+        <b-form-group label="Requirements:" label-for="requirements">
+          <b-form-input
+            id="requirements"
+            v-model="adRequest.requirements"
+            required
+          ></b-form-input>
+        </b-form-group>
+        <b-form-group
+          label="Proposed Payment Amount:"
+          label-for="payment-amount"
+        >
+          <b-form-input
+            id="payment-amount"
+            v-model.number="adRequest.payment_amount"
+            type="number"
+            required
+          ></b-form-input>
+        </b-form-group>
+
+        <div class="w-100 d-flex justify-content-center mt-3">
+          <b-button type="submit" variant="success">
+            Submit Ad Request
+          </b-button>
+        </div>
+      </b-form>
+    </b-modal>
   </div>
 </template>
 
@@ -196,7 +237,7 @@ export default {
     const searchQuery = ref("");
     const modal = ref(false);
     const role = ref(null);
-
+    const usersname = ref("");
     const showFlagModal = ref(false);
     const flagItem = ref(null);
     const flagItemType = ref("");
@@ -205,6 +246,7 @@ export default {
     const loadSession = async () => {
       const username = localStorage.getItem("username");
       const userRole = localStorage.getItem("role");
+      usersname.value = username;
 
       if (!username) {
         router.push({ name: "Login" });
@@ -295,6 +337,45 @@ export default {
       }
     };
 
+    const handleRequest = async (influencer) => {
+      try {
+        const campaignId = prompt("Enter the campaign ID for the ad request:");
+        const paymentAmount = prompt(
+          "Enter the payment amount for the ad request:"
+        );
+        const message = prompt("Enter the message for the ad request:");
+
+        if (!campaignId || !paymentAmount || isNaN(paymentAmount)) {
+          alert("Please enter valid values.");
+          return;
+        }
+
+        const data = {
+          message,
+          payment_amount: paymentAmount,
+          requirements: "Please review the campaign.",
+          influencers: influencer.name,
+        };
+
+        const response = await axios.post(
+          `http://localhost:5000/add_adrequest/${localStorage.getItem(
+            "username"
+          )}/${campaignId}`,
+          data,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+
+        alert(response.data.message);
+      } catch (error) {
+        console.error("Error sending ad request:", error);
+        alert("Failed to send ad request.");
+      }
+    };
+
     onMounted(() => {
       loadSession();
     });
@@ -313,6 +394,8 @@ export default {
       flagItemType,
       flagReason,
       confirmFlag,
+      handleRequest,
+      usersname,
     };
   },
 };

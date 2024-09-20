@@ -114,7 +114,9 @@
               @click="approveSponsor(user.id)"
               >Approve</BButton
             >
-            <BButton variant="danger" size="sm">Decline</BButton>
+            <BButton variant="danger" size="sm" @click="declineSponsor(user.id)"
+              >Decline</BButton
+            >
           </div>
         </BListGroupItem>
       </BListGroup>
@@ -192,6 +194,28 @@ export default {
       }
     };
 
+    const declineSponsor = async (id) => {
+      if (
+        confirm(
+          "Are you sure you want to decline this sponsor and delete the profile?"
+        )
+      ) {
+        try {
+          await axios.delete(`http://localhost:5000/remove_user/${id}`, {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          });
+          loadSession(); // Refresh the data after deletion
+        } catch (err) {
+          console.error(
+            "Error deleting sponsor:",
+            err.response?.data || err.message
+          );
+        }
+      }
+    };
+
     const deleteUser = async (id) => {
       if (confirm("Are you sure you want to delete this user?")) {
         try {
@@ -231,6 +255,7 @@ export default {
       viewUser,
       deleteUser,
       approveSponsor,
+      declineSponsor,
     };
   },
 };

@@ -87,14 +87,8 @@ export default {
         }
         const response = await axios.post(
           "http://localhost:5000/login",
-          loginData,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
+          loginData
         );
-        console.log("login success", response.data);
         if (response.data) {
           localStorage.setItem("username", response.data.user.username);
           localStorage.setItem("role", response.data.user.role);

@@ -131,9 +131,11 @@
       <b-button
         variant="success"
         v-if="userRole === 'sponsor'"
-        @click="() => handleDldstats(campaign.id)"
-        >Download Campaign Statistics</b-button
+        @click="handleDldstats(campaign.id)"
+        :disabled="isDownloading"
       >
+        {{ isDownloading ? "Downloading..." : "Download Campaign Statistics" }}
+      </b-button>
     </div>
   </div>
 </template>
@@ -153,6 +155,7 @@ export default {
     const campaignimg = ref("");
     const campaign = ref({});
     const modal = ref(false);
+    const isDownloading = ref(false);
     const selectedSuggestion = ref([]); // Should be an empty array
     const selectedInfluencers = ref([]);
     const userRole = ref(localStorage.getItem("role") || "");
@@ -189,24 +192,55 @@ export default {
       }
     };
 
-    const handleDldstats = (id) => {
-      const res = axios.get(`http://localhost:5000/download_campaign/${id}`);
+    const handleDldstats = async (id) => {
+      try {
+        isDownloading.value = true; // Start the loading state
+        const response = await axios.get(
+          `http://localhost:5000/download_campaign/${id}/${username}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
+        );
+        alert("Download initiated successfully");
+      } catch (error) {
+        console.error("Error downloading campaign stats:", error);
+        alert("Failed to initiate download");
+      } finally {
+        isDownloading.value = false; // End the loading state
+      }
     };
 
     const loadCampaign = async () => {
       try {
         const username = route.params.username;
         const campaignName = route.params.name;
+        console.log(username, campaignName);
+
+        // Replace this with your actual backend URL
+        const baseUrl = import.meta.env.VITE_APP_API_BASE_URL;
+
         const response = await axios.get(
-          `http://localhost:5000/campaign/${username}/${campaignName}`
+          `http://localhost:5000/campaign/${username}/${campaignName}`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          }
         );
-        campaign.value = response.data[0];
-        console.log(campaign);
-        campaignimg.value = `${import.meta.env.VITE_APP_API_BASE_URL}/${
-          campaign.value.campaign_pic
-        }`;
+
+        if (response.data && response.data.length > 0) {
+          campaign.value = response.data[0];
+          campaignimg.value = `http://localhost:5000/${campaign.value.campaign_pic}`;
+        } else {
+          console.error("No campaigns found");
+        }
       } catch (error) {
-        console.error("Error loading campaign:", error);
+        console.error(
+          "Error loading campaign:",
+          error.response ? error.response.data : error.message
+        );
       }
     };
 
@@ -250,19 +284,21 @@ export default {
 
     const fetchSuggestions = async () => {
       const query = influencerQuery.value;
-      if (query.length > 1) {
+      if (query.length > 0) {
         try {
           const response = await axios.get(
             `http://localhost:5000/users/get_influencers`,
             {
               headers: {
-                Authorization: `Bearer ${localStorage.getItem("token")}`, // Include the token
+                Authorization: `Bearer ${localStorage.getItem("token")}`,
               },
               params: { query },
             }
           );
           suggestions.value = response.data;
           showSuggestions.value = true;
+
+          console.log(suggestions.value);
         } catch (error) {
           console.error("Error fetching suggestions:", error);
         }

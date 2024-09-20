@@ -13,31 +13,47 @@ import os
 import uuid
 import pathlib
 import json
+import re
 
-@app.route('/login',methods=['POST'])
+@app.route('/login', methods=['POST'])
 def login():
-    if request.method=='POST':
-        data=request.get_json()
+    if request.method == 'POST':
+        data = request.get_json()
+
+        # If both email and username are missing, immediately return an error
+        if not data.get('email') and not data.get('username'):
+            return jsonify({'message': 'Email or Username required'}), 400
+
+        # Handle login by email
         if data.get('email'):
-            email=data.get('email')
-            password=data.get('password')
-            user=User.query.filter_by(email=email).first()
+            email = data.get('email')
+            password = data.get('password')
+            user = User.query.filter_by(email=email).first()
+
+        # Handle login by username
         if data.get('username'):
-            username=data.get('username')
-            password=data.get('password')
-            user=User.query.filter_by(username=username).first()
-            if user and check_password_hash(user.password,password):
-                session['user_id']=user.id
-                access_token=create_access_token(identity=user.id, additional_claims={'role':user.role,'username':user.username})
-                if user.role=='sponsor':
-                    sponsor=Sponsor.query.filter_by(user_id=user.id).first().is_approved    
-                    if sponsor:
-                        return jsonify({'message':"Login Successful",'access_token':access_token,"user":user.to_dict()}), 200
-                    else:
-                        return jsonify({'message':"Profile still not verified"}), 404
-                return jsonify({'message':"Login Successful",'access_token':access_token,"user":user.to_dict()}), 200
-        else:
-            return jsonify({'message':"Invalid Credentials"}), 401
+            username = data.get('username')
+            password = data.get('password')
+            user = User.query.filter_by(username=username).first()
+
+        # If user exists and password matches
+        if user and check_password_hash(user.password, password):
+            session['user_id'] = user.id
+            access_token = create_access_token(identity=user.id, additional_claims={'role': user.role, 'username': user.username})
+
+            
+            if user.role == 'sponsor':
+                sponsor = Sponsor.query.filter_by(user_id=user.id).first()
+                if sponsor and sponsor.is_approved:
+                    return jsonify({'message': "Login Successful", 'access_token': access_token, "user": user.to_dict()}), 200
+                else:
+                    return jsonify({'message': "Profile still not verified"}), 404
+
+            # Successful login for other user roles
+            return jsonify({'message': "Login Successful", 'access_token': access_token, "user": user.to_dict()}), 200
+
+        # Invalid credentials
+        return jsonify({'message': "Invalid Credentials"}), 401
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -48,10 +64,22 @@ def register():
         role = request.form.get('role')
         allowed_formats = {'png', 'tiff', 'jpg', 'jpeg'}
 
+        # Validations
+        if not username:
+            return jsonify({'message': "Username is required"}), 400
+        if not email:
+            return jsonify({'message': "Email is required"}), 400
+        if not password:
+            return jsonify({'message': "Password is required"}), 400
+        if len(password) < 6:
+            return jsonify({'message': "Password must be at least 6 characters long"}), 400
+        if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
+            return jsonify({'message': "Invalid email format"}), 400
+
         user = User.query.filter_by(username=username).first()
         if user:
             return jsonify({'message': "Username already taken"}), 401
-        
+
         try:
             if role == 'influencer' or role == 'sponsor':
                 category = request.form.get('category')
@@ -63,38 +91,41 @@ def register():
                 niche = request.form.get('niche', '[]')
                 niche_list = ','.join(json.loads(niche)) if isinstance(niche, str) else niche
 
+                # Handle optional profile picture
                 temp = request.files.get('profile_pic')
+                profile_fin = None  # Default to None if no file is uploaded
 
                 if temp:
                     filename = secure_filename(temp.filename)
                     if "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_formats:
                         unique_filename = str(uuid.uuid4()) + os.path.splitext(filename)[1]
-                        profile_fin = os.path.join(app.config['UPLOAD_FOLDER_PPIC'], unique_filename).replace("\\",'/')
+                        profile_fin = os.path.join(app.config['UPLOAD_FOLDER_PPIC'], unique_filename).replace("\\", '/')
                         os.makedirs(app.config['UPLOAD_FOLDER_PPIC'], exist_ok=True)
                         temp.save(profile_fin)
-                        new_user = User(username=username, name=name, email=email, password=generate_password_hash(password), role=role,profile_pic=profile_fin)
-                        if role == 'influencer':
-                            new_role_user = Influencer(category=category, niche=niche_list, reach=0, user=new_user, name=profile_name)
-                        else:
-                            companyname = request.form.get('companyname')
-                            industry = request.form.get('industry')
-                            budget = request.form.get('budget')
-                            new_role_user = Sponsor(company_name=companyname, industry=industry, budget=budget, user=new_user,  is_approved=False )
-                        db.session.add(new_role_user)
-                        db.session.commit()
-
-                        session['user_id'] = new_user.id
-                        return jsonify({'message': "Register Successful", "user": new_user.to_dict()}), 200
                     else:
                         return jsonify({'message': 'Invalid file format. Please use PNG, TIFF, JPG, or JPEG.'}), 400
+                
+                # Create the user
+                new_user = User(username=username, name=name, email=email, password=generate_password_hash(password), role=role, profile_pic=profile_fin)
+                if role == 'influencer':
+                    new_role_user = Influencer(category=category, niche=niche_list, reach=0, user=new_user, name=profile_name)
                 else:
-                    return jsonify({'message': 'Profile picture is required.'}), 400
+                    companyname = request.form.get('companyname')
+                    industry = request.form.get('industry')
+                    budget = request.form.get('budget')
+                    new_role_user = Sponsor(company_name=companyname, industry=industry, budget=budget, user=new_user, is_approved=False)
+                
+                db.session.add(new_role_user)
+                db.session.commit()
+
+                session['user_id'] = new_user.id
+                return jsonify({'message': "Register Successful", "user": new_user.to_dict()}), 200
+
             else:
                 return jsonify({'message': 'Invalid role.'}), 400
 
         except Exception as e:
             db.session.rollback()
-            # Log the exception (optionally, you can use a logging framework)
             print(f"Error occurred: {str(e)}")
             return jsonify({'message': f'Error occurred: {str(e)}'}), 500
 
@@ -146,8 +177,7 @@ def manage_user():
 @app.route('/users/<string:username>', methods=['GET', 'PUT', 'DELETE'])
 @cache.cached(timeout=300, key_prefix=lambda: f"user_{request.view_args['username']}")
 def handle_user(username):
-    user = User.query.filter_by(username=username).first_or_404()
-
+    user = User.query.filter_by(username=username).first()
     if request.method == 'GET':
         user_data = user.to_dict()
         if user.role == 'influencer':
@@ -207,11 +237,13 @@ def handle_user(username):
 @jwt_required()
 @cache.cached(timeout=300, key_prefix='all_influencers')
 def get_influencers():
+    
     query = request.args.get('query', '')
+    print(query)
     if query:
-        # Perform a search in your database based on the query
         influencers = User.query.filter(User.role == 'influencer', User.username.ilike(f'%{query}%')).all()
         suggestions = [influencer.username for influencer in influencers]
+        print(suggestions)
         return jsonify(suggestions)
     else:
         return jsonify([])
@@ -328,57 +360,79 @@ def get_unapproved_sponsors():
     response = [sponsor.to_dict() for sponsor in unapproved_sponsors]
     
     return jsonify(response), 200
-
 @auth_required
 @jwt_required()
 @app.route("/campaigns/<string:username>", methods=['GET'])
 @cache.cached(timeout=300, key_prefix=lambda: f"campaigns_{request.view_args['username']}")
-
 def get_campaigns(username):
     user = User.query.filter_by(username=username).first()
-    if user:
-        if user.role == 'sponsor':
-            sponsor = Sponsor.query.filter_by(user_id=user.id).first()
-            campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id).all()
-            influencer = Influencer.query.all()
-            return jsonify({
-                'campaigns': [campaign.to_dic() for campaign in campaigns],
-                "influencers":[ i.to_dic() for i in influencer ]}
-                ), 200
-        elif user.role == 'influencer':
-            influencer = Influencer.query.filter_by(user_id=user.id).first()
-            ad_requests = Adrequest.query.filter_by(influencer_id=influencer.id).all()
-            campaign_ids = [ad_request.campaign_id for ad_request in ad_requests]
-            campaigns = Campaign.query.filter(Campaign.id.in_(campaign_ids)).all()
-            return jsonify({
-                'campaigns': [campaign.to_dic() for campaign in campaigns],
-                'ad_requests': [ad_request.to_dict() for ad_request in ad_requests]
-            }), 200
-        else:
-            campaigns = Campaign.query.all()
-            influencer = Influencer.query.all()
-            sponsor = db.session.query(User, Sponsor).join(Sponsor, User.id == Sponsor.user_id).all()
-            sponsors_data = [
-                {**user.to_dict(), **sponsor.to_dic()} for user, sponsor in sponsor
-            ]
-            return jsonify({'campaigns':[campaign.to_dic() for campaign in campaigns],'influencers':[influ.to_dic() for influ in influencer],'sponsors':sponsors_data}), 200
-    else:
+    if not user:
         return jsonify({'message': 'User not found'}), 404
+    
+    if user.role == 'sponsor':
+        # Fetch campaigns for the sponsor
+        sponsor = Sponsor.query.filter_by(user_id=user.id).first()
+        campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id).all()
+        # Return both campaign and user data (joined with influencer data)
+        influencers = db.session.query(User, Influencer).join(Influencer, User.id == Influencer.user_id).all()
 
+        influencers_data = [
+            {**influencer_user.to_dict(), **influencer.to_dict()} for influencer_user, influencer in influencers
+        ]
+
+        return jsonify({
+            'campaigns': [campaign.to_dic() for campaign in campaigns],
+            'influencers': influencers_data,
+            'username': user.username
+        }), 200
+
+    elif user.role == 'influencer':
+        # Fetch campaigns for the influencer
+        influencer = Influencer.query.filter_by(user_id=user.id).first()
+        ad_requests = Adrequest.query.filter_by(influencer_id=influencer.id).all()
+        campaign_ids = [ad_request.campaign_id for ad_request in ad_requests]
+        campaigns = Campaign.query.filter(Campaign.id.in_(campaign_ids)).all()
+        
+        return jsonify({
+            'campaigns': [campaign.to_dic() for campaign in campaigns],
+            'ad_requests': [ad_request.to_dict() for ad_request in ad_requests],
+            'username': user.username  # Include user data for influencers as well
+        }), 200
+
+    else:
+        # Return all campaigns, influencers, and sponsors with joined user data
+        campaigns = Campaign.query.all()
+        influencers = db.session.query(User, Influencer).join(Influencer, User.id == Influencer.user_id).all()
+        sponsors = db.session.query(User, Sponsor).join(Sponsor, User.id == Sponsor.user_id).all()
+
+        influencers_data = [
+            {**influencer_user.to_dict(), **influencer.to_dict()} for influencer_user, influencer in influencers
+        ]
+        sponsors_data = [
+            {**sponsor_user.to_dict(), **sponsor.to_dict()} for sponsor_user, sponsor in sponsors
+        ]
+
+        return jsonify({
+            'campaigns': [campaign.to_dic() for campaign in campaigns],
+            'influencers': influencers_data,
+            'sponsors': sponsors_data
+        }), 200
 
 @auth_required
 @jwt_required()
 @app.route("/campaign/<string:username>/<string:name>", methods=['GET'])
 @cache.cached(timeout=300, key_prefix=lambda: f"campaigns_{request.view_args['username']}_{request.view_args['name']}")
-def get_campaign(username,name):
-    user = User.query.filter_by(username=username).first()
-    if user.role == 'sponsor':
+def get_campaign(username, name):
+    print(username, name)
+    user = User.query.filter_by(username=name).first()
+    if user and user.role == 'sponsor':
         sponsor = Sponsor.query.filter_by(user_id=user.id).first()
-        campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id, name=name).all()
+        campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id, name=username).all()
         print(campaigns)
         return jsonify([campaign.to_dic() for campaign in campaigns]), 200
     else:
-        return jsonify({'message': 'Unauthorized role'}), 403
+        return jsonify({'message': 'Unauthorized role or user not found'}), 403
+
 
 @auth_required
 @jwt_required()
@@ -441,7 +495,7 @@ def get_stats(username):
     if user:
         if user.role == 'sponsor':
             sponsor = Sponsor.query.filter_by(user_id=user.id).first()
-            campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id).all()
+            campaigns = Campaign.query.filter_by(sponsor_id=sponsor.id).all() or []
             active_campaign = 0
             inactive_campaign = 0
             used_budget = 0
@@ -465,7 +519,7 @@ def get_stats(username):
             response_data = {
                 "adrequestsdata": [ad_request.to_dict() for ad_request in ad_requests],
                 "campaignsdata": [campaign.to_dic() for campaign in campaigns],
-                "sponsordata": sponsor.to_dic(),
+                "sponsordata": sponsor.to_dict(),
                 "activevsinactive": [active_campaign, inactive_campaign]
             }
 
@@ -476,7 +530,7 @@ def get_stats(username):
 
         elif user.role == 'influencer':
             influencer = Influencer.query.filter_by(user_id=user.id).first()
-            ad_requests = Adrequest.query.filter_by(influencer_id=influencer.id).all()
+            ad_requests = Adrequest.query.filter_by(influencer_id=influencer.id).all() or []
             return jsonify([ad_request.to_dict() for ad_request in ad_requests]), 200
 
         else:
@@ -598,38 +652,60 @@ def get_adrequests(username):
 @app.route('/process_request/<int:id>', methods=['POST'])
 def process_ad_requests(id):
     ad_request = Adrequest.query.get(id)
+    
     if not ad_request:
         return jsonify({'message': 'Ad request not found'}), 404
-    data = request.get_json()
-    print(data)
-    if data.get("todo") == 'accept':
-        if data.get("sender") == 'sponsor':
-            campaign= Campaign.query.get(ad_request.campaign_id)
-            influencer = Influencer.query.get(ad_request.influencer_id)
-            if campaign and influencer:
-                if influencer not in campaign.influencers:
-                    campaign.influencers.append(influencer)
-                ad_request.status = 'accepted'
 
-        elif data.get("sender") == 'influencer':
-            influencer = Influencer.query.get(ad_request.influencer_id)
-            campaign= Campaign.query.get(ad_request.campaign_id)
-            if influencer and campaign:
-                if campaign not in influencer.campaigns:
-                    influencer.campaigns.append(campaign)
-                ad_request.status = 'accepted'
+    data = request.get_json()
+
+    if not data or "todo" not in data or "sender" not in data:
+        return jsonify({'message': 'Invalid data. "todo" and "sender" fields are required'}), 400
+
+    try:
+        if data.get("todo") == 'accept':
+            if data.get("sender") == 'sponsor':
+                campaign = Campaign.query.get(ad_request.campaign_id)
+                influencer = Influencer.query.get(ad_request.influencer_id)
+                
+                if campaign and influencer:
+                    if influencer not in campaign.influencers:
+                        campaign.influencers.append(influencer)
+                    ad_request.status = 'accepted'
+                else:
+                    return jsonify({'message': 'Campaign or Influencer not found'}), 404
+
+            elif data.get("sender") == 'influencer':
+                influencer = Influencer.query.get(ad_request.influencer_id)
+                campaign = Campaign.query.get(ad_request.campaign_id)
+                
+                if influencer and campaign:
+                    if campaign not in influencer.campaigns:
+                        influencer.campaigns.append(campaign)
+                    ad_request.status = 'accepted'
+                else:
+                    return jsonify({'message': 'Campaign or Influencer not found'}), 404
+
+            else:
+                return jsonify({'message': 'Invalid sender type'}), 400
+
+        elif data.get("todo") == 'reject':
+            ad_request.status = 'rejected'
 
         else:
-            return jsonify({'message': 'Invalid sender type'}), 400
+            return jsonify({'message': 'Invalid action'}), 400
 
-    elif data.get("todo") == 'reject':
-        ad_request.status = 'rejected'
-    else:
-        return jsonify({'message': 'Invalid action'}), 400
-    cache.delete(f"stats_{request.view_args['username']}")
+        # Invalidate cache after processing request
+        cache.delete(f"stats_{request.view_args['username']}")
+        
+        # Commit changes to the database
+        db.session.commit()
 
-    db.session.commit()
-    return jsonify({'message': f'Request has been {ad_request.status}'}), 200
+        return jsonify({'message': f'Request has been {ad_request.status}'}), 200
+    
+    except Exception as e:
+        # Handle any unexpected errors
+        db.session.rollback()
+        return jsonify({'message': f'An error occurred: {str(e)}'}), 500
 
 @admin_required
 @jwt_required()
@@ -681,8 +757,9 @@ def remove_user(id):
         return jsonify({'message': 'User not found'}), 404
     
     try:
-        db.session.delete(user)  # This will cascade delete the related Sponsor and Influencer due to cascade='all, delete-orphan'
+        db.session.delete(user)  
         db.session.commit()
+        cache.delete(f"stats_{request.view_args['username']}")
 
         return jsonify({'message': 'User and associated data deleted successfully'}), 200
     except Exception as e:
@@ -738,9 +815,9 @@ def export_campaigns_to_csv(sponsor_id, campaign_id):
             print("Sponsor not found")
 
 @auth_required
-@app.route('/download_campaign:<int:campaginid>',methods=['GET'])
-def export_campaign(campaign_id):
-    user = User.query.get(session['user_id'])
+@app.route('/download_campaign/<int:campaign_id>/<string:username>', methods=['GET'])
+def export_campaign(campaign_id,username):
+    user = User.query.get(username=username).first()
     if user.role != 'sponsor':
         return jsonify({"message": "Unauthorized"}), 403
 

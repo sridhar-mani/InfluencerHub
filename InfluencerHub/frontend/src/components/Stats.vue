@@ -1,68 +1,62 @@
 <template>
   <BContainer>
     <BRow>
-      <!-- Existing Sponsor Budget Chart -->
-      <BCol>
-        <Pie
-          v-if="dataC.labels?.length > 0"
-          :key="chartKeySponsor"
-          :data="dataC"
-          :options="optionsC"
-        />
-      </BCol>
-
-      <!-- Existing Influencer Budget Chart -->
-      <BCol v-if="dataInfluencer.labels?.length > 0">
-        <Pie
-          v-if="dataInfluencer.labels?.length > 0"
-          :key="chartKeyInfluencer"
-          :data="dataInfluencer"
-          :options="optionsInfluencer"
-        />
-      </BCol>
-
-      <!-- Existing Campaigns per Month Chart -->
+      <!-- Admin Overview: Total Campaigns, Users, Ad Requests -->
       <BCol>
         <Bar
-          v-if="dataCampaigns.labels.length > 0"
-          :key="chartKeyCampaigns"
-          :data="dataCampaigns"
-          :options="optionsCampaigns"
+          v-if="role === 'admin' && dataOverview.labels?.length > 0"
+          :key="chartKeyOverview"
+          :data="dataOverview"
+          :options="optionsOverview"
         />
       </BCol>
-    </BRow>
 
-    <!-- New Sponsor Campaign Performance Pie Chart -->
-    <BRow v-if="role === 'sponsor' && dataPerformance.labels.length > 0">
-      <BCol>
-        <Pie
-          :key="chartKeyPerformance"
-          :data="dataPerformance"
-          :options="optionsPerformance"
-        />
-      </BCol>
-    </BRow>
-
-    <!-- New Influencer Ad Requests Trend Bar Chart -->
-    <BRow v-if="role === 'influencer' && dataAdRequestsTrend.labels.length > 0">
+      <!-- Admin Active vs Inactive Campaigns by Sponsor -->
       <BCol>
         <Bar
-          :key="chartKeyAdRequestsTrend"
-          :data="dataAdRequestsTrend"
-          :options="optionsAdRequestsTrend"
-        />
-      </BCol>
-    </BRow>
-
-    <!-- New Admin Active vs Inactive Campaigns by Sponsor -->
-    <BRow v-if="role === 'admin' && dataCampaignsBySponsor.labels.length > 0">
-      <BCol>
-        <Bar
+          v-if="role === 'admin' && dataCampaignsBySponsor.labels?.length > 0"
           :key="chartKeyCampaignsBySponsor"
           :data="dataCampaignsBySponsor"
           :options="optionsCampaignsBySponsor"
         />
       </BCol>
+
+      <!-- Sponsor Campaign Performance -->
+      <BCol>
+        <Pie
+          v-if="role === 'sponsor' && dataPerformance.labels?.length > 0"
+          :key="chartKeyPerformance"
+          :data="dataPerformance"
+          :options="optionsPerformance"
+        />
+      </BCol>
+
+      <!-- Influencer Ad Requests Status Pie Chart -->
+      <BCol>
+        <Pie
+          v-if="role === 'influencer' && dataAdRequests.labels?.length > 0"
+          :key="chartKeyAdRequests"
+          :data="dataAdRequests"
+          :options="optionsAdRequests"
+        />
+      </BCol>
+
+      <!-- Influencer Ad Requests Trend Bar Chart -->
+      <BCol>
+        <Bar
+          v-if="role === 'influencer' && dataAdRequestsTrend.labels?.length > 0"
+          :key="chartKeyAdRequestsTrend"
+          :data="dataAdRequestsTrend"
+          :options="optionsAdRequestsTrend"
+        />
+      </BCol>
+
+      <!-- Fallback for when no data is available -->
+      <BRow v-if="!hasData">
+        <BCol>
+          <h5>Sorry, No Data Available Right Now.</h5>
+        </BCol>
+      </BRow>
     </BRow>
   </BContainer>
 </template>
@@ -96,12 +90,37 @@ export default {
   name: "Stats",
   components: { Pie, Bar },
   setup() {
-    const chartKeySponsor = ref(0);
-    const chartKeyInfluencer = ref(0);
-    const chartKeyCampaigns = ref(0);
     const role = ref("");
+    const hasData = ref(false);
 
-    // New Charts for Sponsor Performance (Impressions & Clicks)
+    // Admin Overview: Total campaigns, users, ad requests
+    const chartKeyOverview = ref(0);
+    const dataOverview = ref({
+      labels: ["Campaigns", "Users", "Ad Requests"],
+      datasets: [
+        {
+          label: "Overview",
+          backgroundColor: ["#36A2EB", "#FF6384", "#FFCE56"],
+          data: [0, 0, 0], // Will be updated via API
+        },
+      ],
+    });
+
+    const optionsOverview = ref({
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        title: {
+          display: true,
+          text: "Admin Overview (Campaigns, Users, Ad Requests)",
+        },
+        legend: {
+          position: "top",
+        },
+      },
+    });
+
+    // Sponsor Campaign Performance
     const chartKeyPerformance = ref(0);
     const dataPerformance = ref({
       labels: [],
@@ -128,7 +147,7 @@ export default {
       },
     });
 
-    // New Influencer Ad Requests Trend Chart
+    // Influencer Ad Requests Trend
     const chartKeyAdRequestsTrend = ref(0);
     const dataAdRequestsTrend = ref({
       labels: [],
@@ -162,7 +181,7 @@ export default {
       },
     });
 
-    // New Admin Campaigns by Sponsor Chart
+    // Admin: Active vs Inactive Campaigns by Sponsor
     const chartKeyCampaignsBySponsor = ref(0);
     const dataCampaignsBySponsor = ref({
       labels: [],
@@ -199,25 +218,26 @@ export default {
       },
     });
 
-    // Sponsor Budgets Pie Chart
-    const dataC = ref({
-      labels: [],
+    // Influencer Ad Request Status
+    const chartKeyAdRequests = ref(0);
+    const dataAdRequests = ref({
+      labels: ["Pending", "Accepted", "Rejected"],
       datasets: [
         {
-          label: "Sponsor Budget Distribution",
-          backgroundColor: [],
-          data: [],
+          label: "Ad Request Status",
+          backgroundColor: ["#FFCE56", "#36A2EB", "#FF6384"],
+          data: [0, 0, 0],
         },
       ],
     });
 
-    const optionsC = ref({
+    const optionsAdRequests = ref({
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         title: {
           display: true,
-          text: "Sponsor Budget Distribution",
+          text: "Ad Request Status (Pending, Accepted, Rejected)",
         },
         legend: {
           position: "right",
@@ -225,100 +245,76 @@ export default {
       },
     });
 
-    // Influencer Budgets Pie Chart
-    const dataInfluencer = ref({
-      labels: [],
-      datasets: [
-        {
-          label: "Influencer Budget Distribution",
-          backgroundColor: [],
-          data: [],
-        },
-      ],
-    });
-
-    const optionsInfluencer = ref({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: "Influencer Budget Distribution",
-        },
-        legend: {
-          position: "right",
-        },
-      },
-    });
-
-    // Campaigns per Month Bar Chart
-    const dataCampaigns = ref({
-      labels: [],
-      datasets: [
-        {
-          label: "Number of Campaigns per Month",
-          backgroundColor: "rgba(54, 162, 235, 0.5)",
-          borderColor: "rgba(54, 162, 235, 1)",
-          borderWidth: 1,
-          data: [],
-        },
-      ],
-    });
-
-    const optionsCampaigns = ref({
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        title: {
-          display: true,
-          text: "Number of Campaigns per Month",
-        },
-        legend: {
-          position: "top",
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          suggestedMax: 10,
-          ticks: {
-            stepSize: 10,
-          },
-        },
-      },
-    });
-
+    // Load the stats from the backend
     const loadStats = async () => {
       try {
         const { data } = await axios.get(
           `http://localhost:5000/stats/${localStorage.getItem("username")}`
         );
         role.value = localStorage.getItem("role");
-        console.log("Loaded data:", data);
+        hasData.value = Boolean(data);
 
-        if (role.value === "sponsor") {
-          // Campaign Performance Pie Chart (Impressions & Clicks)
-          const impressions = data.campaignsdata.map(
-            (campaign) => campaign.impressions
-          );
-          const clicks = data.campaignsdata.map((campaign) => campaign.clicks);
-
-          dataPerformance.value.labels = data.campaignsdata.map((m) => m.name);
-          dataPerformance.value.datasets[0].data = [
-            impressions.reduce((a, b) => a + b, 0),
-            clicks.reduce((a, b) => a + b, 0),
+        // Admin role
+        if (role.value === "admin") {
+          // Overview (Campaigns, Users, Ad Requests)
+          dataOverview.value.datasets[0].data = [
+            data.total_campaigns,
+            data.total_users,
+            data.total_ad_requests,
           ];
-          chartKeyPerformance.value += 1;
+          chartKeyOverview.value += 1;
+
+          // Active vs Inactive Campaigns by Sponsor
+          const sponsors = data.sponsors.map((sponsor) => sponsor.name);
+          const activeCampaigns = sponsors.map(
+            (sponsor) => data.active_campaigns[sponsor] || 0
+          );
+          const inactiveCampaigns = sponsors.map(
+            (sponsor) => data.inactive_campaigns[sponsor] || 0
+          );
+
+          dataCampaignsBySponsor.value.labels = sponsors;
+          dataCampaignsBySponsor.value.datasets[0].data = activeCampaigns;
+          dataCampaignsBySponsor.value.datasets[1].data = inactiveCampaigns;
+          chartKeyCampaignsBySponsor.value += 1;
         }
 
+        // Sponsor role
+        if (role.value === "sponsor") {
+          const campaigns = data.campaigns || []; 
+          if (campaigns.length > 0) {
+            dataPerformance.value.labels = campaigns.map((c) => c.name);
+            dataPerformance.value.datasets[0].data = [
+              data.total_impressions || 0,
+              data.total_clicks || 0,
+            ];
+            chartKeyPerformance.value += 1;
+          } else {
+            console.log("No campaigns data available for sponsor.");
+            hasData.value = false; // Indicate no data is available
+          }
+        }
+
+        // Influencer role
         if (role.value === "influencer") {
-          // Ensure ad_requests is available before using
-          const adRequests = data.ad_requests || []; // Default to empty array if undefined
+          const adRequests = data.ad_requests || [];
+
+          // Ad Requests Status Pie Chart
+          const adRequestStatus = {
+            pending: 0,
+            accepted: 0,
+            rejected: 0,
+          };
+          adRequests.forEach((request) => {
+            adRequestStatus[request.status]++;
+          });
+          dataAdRequests.value.datasets[0].data =
+            Object.values(adRequestStatus);
+          chartKeyAdRequests.value += 1;
 
           // Ad Requests Trend Bar Chart
           const adRequestsPerMonth = Array(12).fill(0);
           const currentDate = new Date();
-
           adRequests.forEach((request) => {
             const requestDate = new Date(request.created_at);
             const monthIndex =
@@ -326,8 +322,9 @@ export default {
               requestDate.getMonth() -
               currentDate.getMonth() +
               11;
-            if (monthIndex >= 0 && monthIndex < 12)
+            if (monthIndex >= 0 && monthIndex < 12) {
               adRequestsPerMonth[monthIndex]++;
+            }
           });
 
           dataAdRequestsTrend.value.labels = Array.from(
@@ -336,218 +333,48 @@ export default {
               new Date(
                 currentDate.getFullYear(),
                 currentDate.getMonth() - 11 + i
-              ).toLocaleString("default", {
-                month: "long",
-              })
+              ).toLocaleString("default", { month: "long" })
           );
           dataAdRequestsTrend.value.datasets[0].data = adRequestsPerMonth;
           chartKeyAdRequestsTrend.value += 1;
         }
-
-        if (role.value === "admin") {
-          // Active vs Inactive Campaigns by Sponsor Chart
-          const sponsors = data.all_sponsors.map((sponsor) => sponsor.name);
-          const activeBySponsor = sponsors.map((sponsor) => {
-            return data.all_campaigns.filter(
-              (campaign) =>
-                campaign.sponsor === sponsor && campaign.end_date > new Date()
-            ).length;
-          });
-          const inactiveBySponsor = sponsors.map((sponsor) => {
-            return data.all_campaigns.filter(
-              (campaign) =>
-                campaign.sponsor === sponsor && campaign.end_date <= new Date()
-            ).length;
-          });
-
-          dataCampaignsBySponsor.value.labels = sponsors;
-          dataCampaignsBySponsor.value.datasets[0].data = activeBySponsor;
-          dataCampaignsBySponsor.value.datasets[1].data = inactiveBySponsor;
-          chartKeyCampaignsBySponsor.value += 1;
-        }
-
-        if (role.value === "sponsor") {
-          // Sponsor logic for charts
-          const totalBudget = data.sponsordata.budget;
-
-          // Sponsor Budgets Pie Chart
-          dataC.value.labels = data.campaignsdata.map((m) => m.name);
-          dataC.value.labels.push("Unused Budget");
-          dataC.value.datasets[0].data = data.campaignsdata.map(
-            (m) => m.budget
-          );
-          const unusedBudget =
-            totalBudget -
-            dataC.value.datasets[0].data.reduce(
-              (tot, budget) => tot + budget,
-              0
-            );
-          dataC.value.datasets[0].data.push(unusedBudget);
-          dataC.value.datasets[0].backgroundColor = dataC.value.labels.map(
-            () => {
-              const letters = "0123456789ABCDEF";
-              let color = "#";
-              for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-              }
-              return color;
-            }
-          );
-          chartKeySponsor.value += 1;
-
-          // Influencer Budgets Pie Chart
-          if (data.influencerbudget) {
-            dataInfluencer.value.labels = data.influencerbudget.map(
-              (i) => i.influencer
-            );
-            dataInfluencer.value.datasets[0].data = data.influencerbudget.map(
-              (i) => i.budget
-            );
-            dataInfluencer.value.datasets[0].backgroundColor =
-              dataInfluencer.value.labels.map(() => {
-                const letters = "0123456789ABCDEF";
-                let color = "#";
-                for (let i = 0; i < 6; i++) {
-                  color += letters[Math.floor(Math.random() * 16)];
-                }
-                return color;
-              });
-            chartKeyInfluencer.value += 1;
-          }
-
-          // Campaigns per Month Bar Chart
-          const campaignsPerMonth = Array(12).fill(0);
-          const currentDate = new Date();
-          const currentMonth = currentDate.getMonth();
-          const currentYear = currentDate.getFullYear();
-
-          data.campaignsdata.forEach((campaign) => {
-            const startDate = new Date(campaign.start_date);
-            const endDate = new Date(campaign.end_date);
-
-            // Loop through each month the campaign is active
-            for (
-              let year = startDate.getFullYear();
-              year <= endDate.getFullYear();
-              year++
-            ) {
-              const startMonth =
-                year === startDate.getFullYear() ? startDate.getMonth() : 0;
-              const endMonth =
-                year === endDate.getFullYear() ? endDate.getMonth() : 11;
-
-              for (let month = startMonth; month <= endMonth; month++) {
-                const monthIndex =
-                  (year - currentYear) * 12 + month - currentMonth + 11;
-                if (monthIndex >= 0 && monthIndex < 12) {
-                  campaignsPerMonth[monthIndex] += 1;
-                }
-              }
-            }
-          });
-
-          // Populate the labels with the past 12 months
-          dataCampaigns.value.labels = Array.from({ length: 12 }, (_, i) =>
-            new Date(
-              currentDate.getFullYear(),
-              currentDate.getMonth() - 11 + i
-            ).toLocaleString("default", {
-              month: "long",
-            })
-          );
-
-          console.log("campaignsPerMonth:", campaignsPerMonth);
-          dataCampaigns.value.datasets[0].data = campaignsPerMonth;
-
-          // Dynamically adjust the y-axis scale
-          const maxCampaigns = Math.max(...campaignsPerMonth);
-          console.log("maxCampaigns:", maxCampaigns);
-          if (maxCampaigns > 0) {
-            if (maxCampaigns < 10) {
-              optionsCampaigns.value.scales.y.suggestedMax = 10;
-              optionsCampaigns.value.scales.y.ticks.stepSize = 1;
-            } else if (maxCampaigns < 100) {
-              optionsCampaigns.value.scales.y.suggestedMax = 100;
-              optionsCampaigns.value.scales.y.ticks.stepSize = 10;
-            } else if (maxCampaigns < 1000) {
-              optionsCampaigns.value.scales.y.suggestedMax = 1000;
-              optionsCampaigns.value.scales.y.ticks.stepSize = 100;
-            }
-          }
-
-          chartKeyCampaigns.value += 1;
-        } else if (role.value === "influencer") {
-          // Logic for influencer-specific stats
-          const adRequests = data.ad_requests; // Assuming this is returned by the backend
-          // Populate any charts or data relevant to influencers here
-
-          // Example: If you want to show a pie chart for ad request status
-          const adRequestStatus = {
-            pending: 0,
-            accepted: 0,
-            rejected: 0,
-          };
-
-          adRequests.forEach((request) => {
-            adRequestStatus[request.status]++;
-          });
-
-          dataC.value.labels = Object.keys(adRequestStatus);
-          dataC.value.datasets[0].data = Object.values(adRequestStatus);
-          dataC.value.datasets[0].backgroundColor = dataC.value.labels.map(
-            () => {
-              const letters = "0123456789ABCDEF";
-              let color = "#";
-              for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-              }
-              return color;
-            }
-          );
-          chartKeyInfluencer.value += 1;
-        } else if (role.value === "admin") {
-          // Logic for admin-specific stats
-          const allCampaigns = data.all_campaigns || [];
-          const activeCampaigns = allCampaigns.filter(
-            (campaign) => campaign.end_date > new Date()
-          ).length;
-
-          // Prepare any additional charts or stats for admin
-          dataCampaigns.value.labels = ["Active Campaigns", "Total Campaigns"];
-          dataCampaigns.value.datasets[0].data = [
-            activeCampaigns,
-            allCampaigns.length,
-          ];
-          chartKeyCampaigns.value += 1;
-        }
       } catch (error) {
         console.error("Error loading stats:", error);
+        hasData.value = false;
       }
     };
 
     onMounted(() => {
-      loadStats()
-        .then(() => {
-          console.log("Charts data loaded successfully");
-        })
-        .catch((error) => {
-          console.error("Error in loading charts data:", error);
-        });
+      loadStats();
     });
 
     return {
-      dataC,
-      optionsC,
-      chartKeySponsor,
-      dataInfluencer,
-      optionsInfluencer,
-      chartKeyInfluencer,
-      dataCampaigns,
-      optionsCampaigns,
-      chartKeyCampaigns,
+      role,
+      hasData,
+      dataOverview,
+      chartKeyOverview,
+      optionsOverview,
+      dataPerformance,
+      chartKeyPerformance,
+      optionsPerformance,
+      dataAdRequestsTrend,
+      chartKeyAdRequestsTrend,
+      optionsAdRequestsTrend,
+      dataCampaignsBySponsor,
+      chartKeyCampaignsBySponsor,
+      optionsCampaignsBySponsor,
+      dataAdRequests,
+      chartKeyAdRequests,
+      optionsAdRequests,
     };
   },
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+h5 {
+  text-align: center;
+  color: #ff6384;
+  margin-top: 20px;
+}
+</style>
